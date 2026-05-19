@@ -8,6 +8,7 @@ use App\Http\Controllers\FnbController;
 use App\Http\Controllers\RentalController;
 use App\Http\Controllers\CashOutboundController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\FnbOrderController;
 use App\Http\Controllers\ReservationController;
 use Illuminate\Support\Facades\Route;
 
@@ -60,6 +61,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/reservations/{reservation}', [ReservationController::class, 'update'])->name('reservations.update');
     Route::delete('/reservations/{reservation}', [ReservationController::class, 'destroy'])->name('reservations.destroy');
     Route::post('/reservations/{reservation}/convert', [ReservationController::class, 'convert'])->name('reservations.convert');
+
+    // FNB Orders (standalone)
+    Route::get('/fnb-orders', [FnbOrderController::class, 'index'])->name('fnb-orders.index');
+    Route::post('/fnb-orders', [FnbOrderController::class, 'store'])->name('fnb-orders.store');
+    Route::get('/fnb-orders/{fnbOrder}', [FnbOrderController::class, 'show'])->name('fnb-orders.show');
+    Route::post('/fnb-orders/{fnbOrder}/pay', [FnbOrderController::class, 'pay'])->name('fnb-orders.pay');
+    Route::delete('/fnb-orders/{fnbOrder}', [FnbOrderController::class, 'destroy'])->name('fnb-orders.destroy');
 
     // Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

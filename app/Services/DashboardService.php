@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Rental;
+use App\Models\FnbOrder;
 use App\Models\CashOutbound;
 use Carbon\Carbon;
 
@@ -16,15 +17,23 @@ class DashboardService
         $finishedToday = $todayRentals->whereIn('status', ['finished', 'paid', 'half_paid']);
 
         $totalOmzetRental = $finishedToday->sum('rental_amount') + $finishedToday->sum('extra_amount');
-        $totalOmzetFnb    = $finishedToday->sum('fnb_amount');
-        $totalOmzet       = $finishedToday->sum('total_amount');
-        $totalOutbound    = CashOutbound::whereDate('date', $today)->sum('nominal');
+        $totalOmzetFnbRental = $finishedToday->sum('fnb_amount');
+
+        // Standalone FNB orders paid today
+        $fnbOrdersToday  = FnbOrder::whereDate('paid_at', $today)->where('status', 'paid')->sum('total_amount');
+        $totalOmzetFnb   = $totalOmzetFnbRental + $fnbOrdersToday;
+        $totalOmzet      = $finishedToday->sum('total_amount') + $fnbOrdersToday;
+        $totalOutbound   = CashOutbound::whereDate('date', $today)->sum('nominal');
 
         $activeRentals = Rental::whereIn('status', ['running', 'half_paid'])->whereNull('ended_at')->count();
         $activeRooms   = Rental::whereIn('status', ['running', 'half_paid'])->whereNull('ended_at')->distinct('console_id')->count('console_id');
         $omzetBulanIni = Rental::whereYear('started_at', $today->year)
             ->whereMonth('started_at', $today->month)
             ->whereIn('status', ['finished', 'paid', 'half_paid'])
+            ->sum('total_amount')
+            + FnbOrder::whereYear('paid_at', $today->year)
+            ->whereMonth('paid_at', $today->month)
+            ->where('status', 'paid')
             ->sum('total_amount');
 
         return [
@@ -50,7 +59,8 @@ class DashboardService
             $labels[] = $date->format('d M');
             $dayRentals = Rental::whereDate('started_at', $date)->whereIn('status', ['finished', 'paid', 'half_paid'])->get();
             $rentalData[] = $dayRentals->sum('rental_amount') + $dayRentals->sum('extra_amount');
-            $fnbData[]    = $dayRentals->sum('fnb_amount');
+            $fnbData[]    = $dayRentals->sum('fnb_amount')
+                + FnbOrder::whereDate('paid_at', $date)->where('status', 'paid')->sum('total_amount');
         }
 
         return compact('labels', 'rentalData', 'fnbData');
@@ -67,6 +77,10 @@ class DashboardService
             $data[] = Rental::whereYear('started_at', $month->year)
                 ->whereMonth('started_at', $month->month)
                 ->whereIn('status', ['finished', 'paid', 'half_paid'])
+                ->sum('total_amount')
+                + FnbOrder::whereYear('paid_at', $month->year)
+                ->whereMonth('paid_at', $month->month)
+                ->where('status', 'paid')
                 ->sum('total_amount');
         }
 
