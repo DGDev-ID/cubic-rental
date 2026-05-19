@@ -10,7 +10,7 @@ import {
 import {
   HomeIcon, CurrencyDollarIcon, ComputerDesktopIcon,
   ShoppingCartIcon, ArrowDownCircleIcon, PlayIcon,
-  BuildingStorefrontIcon, CalendarDaysIcon
+  BuildingStorefrontIcon, CalendarDaysIcon, TrophyIcon
 } from '@heroicons/vue/24/outline'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler)
@@ -25,13 +25,16 @@ const props = defineProps<{
     total_active_rentals: number
     total_active_rooms: number
     total_omzet_bulan_ini: number
+    pengeluaran_bulan_ini: number
+    laba_bersih_bulan_ini: number
   }
   dailyChart: { labels: string[]; rentalData: number[]; fnbData: number[] }
   monthlyChart: { labels: string[]; data: number[] }
 }>()
 
 function formatCurrency(val: number): string {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val)
+  const num = Number(val) || 0
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num)
 }
 
 const dailyChartData = {
@@ -84,45 +87,49 @@ const chartOptions = {
       <h1 class="font-semibold text-white text-lg">Dashboard</h1>
     </template>
 
-    <!-- Summary Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 mb-6">
+    <!-- Row 1: Service, Aktif, Omzet Hari Ini, Rental, FNB, Pengeluaran (4 kolom) -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
       <StatCard title="Service Hari Ini" :value="summary.total_service_today" color="blue">
         <template #icon><HomeIcon class="w-5 h-5" /></template>
+      </StatCard>
+      <StatCard title="Aktif (Rental/Room)" :value="`${summary.total_active_rentals} / ${summary.total_active_rooms}`" color="yellow">
+        <template #icon><PlayIcon class="w-5 h-5" /></template>
       </StatCard>
       <StatCard title="Omzet Hari Ini" :value="formatCurrency(summary.total_omzet_today)" color="purple">
         <template #icon><CurrencyDollarIcon class="w-5 h-5" /></template>
       </StatCard>
-      <StatCard title="Omzet Rental" :value="formatCurrency(summary.total_omzet_rental)" color="cyan">
+      <StatCard title="Omzet Rental Hari Ini" :value="formatCurrency(summary.total_omzet_rental)" color="cyan">
         <template #icon><ComputerDesktopIcon class="w-5 h-5" /></template>
       </StatCard>
-      <StatCard title="Omzet FNB" :value="formatCurrency(summary.total_omzet_fnb)" color="green">
+    </div>
+
+    <!-- Row 2: Omzet FNB, Pengeluaran, Omzet Bulan Ini, Laba Bersih (4 kolom) -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <StatCard title="Omzet FNB Hari Ini" :value="formatCurrency(summary.total_omzet_fnb)" color="green">
         <template #icon><ShoppingCartIcon class="w-5 h-5" /></template>
       </StatCard>
-      <StatCard title="Pengeluaran" :value="formatCurrency(summary.total_cash_outbound)" color="red">
+      <StatCard title="Pengeluaran Bulan Ini" :value="formatCurrency(summary.total_cash_outbound)" color="red">
         <template #icon><ArrowDownCircleIcon class="w-5 h-5" /></template>
-      </StatCard>
-      <StatCard title="Transaksi Aktif" :value="summary.total_active_rentals" color="yellow">
-        <template #icon><PlayIcon class="w-5 h-5" /></template>
-      </StatCard>
-      <StatCard title="Room Aktif" :value="summary.total_active_rooms" color="purple">
-        <template #icon><BuildingStorefrontIcon class="w-5 h-5" /></template>
       </StatCard>
       <StatCard title="Omzet Bulan Ini" :value="formatCurrency(summary.total_omzet_bulan_ini)" color="blue">
         <template #icon><CalendarDaysIcon class="w-5 h-5" /></template>
       </StatCard>
+      <StatCard title="Laba Bersih Bulan Ini" :value="formatCurrency(summary.laba_bersih_bulan_ini)" :color="summary.laba_bersih_bulan_ini >= 0 ? 'green' : 'red'">
+        <template #icon><TrophyIcon class="w-5 h-5" /></template>
+      </StatCard>
     </div>
 
-    <!-- Charts -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <!-- Charts: full width each -->
+    <div class="space-y-4">
       <div class="rounded-xl p-4" style="background-color:#1a1a26; border:1px solid #2a2a3a;">
         <h3 class="font-semibold text-white mb-4 text-sm">Omzet 7 Hari Terakhir</h3>
-        <div class="h-52">
+        <div class="h-56">
           <Line :data="dailyChartData" :options="chartOptions" />
         </div>
       </div>
       <div class="rounded-xl p-4" style="background-color:#1a1a26; border:1px solid #2a2a3a;">
         <h3 class="font-semibold text-white mb-4 text-sm">Omzet 6 Bulan Terakhir</h3>
-        <div class="h-52">
+        <div class="h-56">
           <Bar :data="monthlyChartData" :options="chartOptions" />
         </div>
       </div>

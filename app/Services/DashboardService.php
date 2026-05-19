@@ -36,15 +36,23 @@ class DashboardService
             ->where('status', 'paid')
             ->sum('total_amount');
 
+        $pengeluaranBulanIni = CashOutbound::whereYear('date', $today->year)
+            ->whereMonth('date', $today->month)
+            ->sum('nominal');
+
+        $labaBersihBulanIni = (float) $omzetBulanIni - (float) $pengeluaranBulanIni;
+
         return [
-            'total_service_today'    => $todayRentals->count(),
-            'total_omzet_today'      => $totalOmzet,
-            'total_omzet_rental'     => $totalOmzetRental,
-            'total_omzet_fnb'        => $totalOmzetFnb,
-            'total_cash_outbound'    => $totalOutbound,
-            'total_active_rentals'   => $activeRentals,
-            'total_active_rooms'     => $activeRooms,
-            'total_omzet_bulan_ini'  => $omzetBulanIni,
+            'total_service_today'       => $todayRentals->count(),
+            'total_omzet_today'         => (float) $totalOmzet,
+            'total_omzet_rental'        => (float) $totalOmzetRental,
+            'total_omzet_fnb'           => (float) $totalOmzetFnb,
+            'total_cash_outbound'       => (float) $totalOutbound,
+            'total_active_rentals'      => $activeRentals,
+            'total_active_rooms'        => $activeRooms,
+            'total_omzet_bulan_ini'     => (float) $omzetBulanIni,
+            'pengeluaran_bulan_ini'     => (float) $pengeluaranBulanIni,
+            'laba_bersih_bulan_ini'     => $labaBersihBulanIni,
         ];
     }
 
