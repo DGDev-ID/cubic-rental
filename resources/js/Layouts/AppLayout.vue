@@ -4,7 +4,7 @@ import { Link, usePage } from '@inertiajs/vue3'
 import {
   HomeIcon, ComputerDesktopIcon, UserGroupIcon, CubeIcon,
   ShoppingBagIcon, ClockIcon, BanknotesIcon, ListBulletIcon,
-  Bars3Icon, XMarkIcon, ChevronDownIcon, PowerIcon, SignalIcon
+  Bars3Icon, XMarkIcon, ChevronDownIcon, PowerIcon, SignalIcon, CalendarDaysIcon
 } from '@heroicons/vue/24/outline'
 
 const page = usePage()
@@ -17,6 +17,7 @@ const navItems = [
   { label: 'Dashboard',     route: 'dashboard',            icon: HomeIcon },
   { label: 'Room Monitor',  route: 'room-monitor',         icon: SignalIcon },
   { label: 'Rental Baru',   route: 'rentals.index',        icon: ClockIcon },
+  { label: 'Reservasi',     route: 'reservations.index',   icon: CalendarDaysIcon },
   { label: 'Riwayat',       route: 'rentals.history',      icon: ListBulletIcon },
   { label: 'Employees',     route: 'employees.index',      icon: UserGroupIcon },
   { label: 'Console/Room',  route: 'consoles.index',       icon: ComputerDesktopIcon },

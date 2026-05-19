@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\FnbItem;
 use App\Models\FnbAddon;
 use App\Models\RentalFnbItem;
+use App\Models\Reservation;
 use App\Services\RentalService;
 use App\Http\Requests\CreateRentalRequest;
 use App\Http\Requests\AddTimeRequest;
@@ -24,9 +25,25 @@ class RentalController extends Controller
 
     public function index(): Response
     {
+        // Upcoming reservations per console (pending/confirmed, belum lewat)
+        $upcomingReservations = Reservation::with('console')
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->where('reserved_at', '>=', now())
+            ->orderBy('reserved_at')
+            ->get()
+            ->groupBy('console_id')
+            ->map(fn($items) => $items->map(fn($r) => [
+                'id'            => $r->id,
+                'customer_name' => $r->customer_name,
+                'reserved_at'   => $r->reserved_at->format('d M Y, H:i'),
+                'duration_hours'=> $r->duration_hours,
+                'status'        => $r->status,
+            ])->values());
+
         return Inertia::render('Rentals/Index', [
-            'consoles'  => Console::where('status', 'available')->orderBy('name')->get(),
-            'employees' => Employee::where('status', 'active')->orderBy('name')->get(),
+            'consoles'             => Console::where('status', 'available')->orderBy('name')->get(),
+            'employees'            => Employee::where('status', 'active')->orderBy('name')->get(),
+            'upcoming_reservations'=> $upcomingReservations,
         ]);
     }
 

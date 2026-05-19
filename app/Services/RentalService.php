@@ -95,7 +95,16 @@ class RentalService
     {
         $endTime = Carbon::now();
         $minutes = $rental->started_at->diffInMinutes($endTime);
-        $rentalAmount = round(($rental->console->price_per_hour / 60) * $minutes);
+
+        if ($rental->scheduled_end_at) {
+            // Fixed duration booking — charge based on scheduled duration
+            $billedMinutes = $rental->started_at->diffInMinutes($rental->scheduled_end_at);
+        } else {
+            // Open time — round up to nearest 30-min block, minimum 30 min
+            $billedMinutes = (int)(ceil(max($minutes, 1) / 30) * 30);
+        }
+
+        $rentalAmount = round(($rental->console->price_per_hour / 60) * $billedMinutes);
 
         $rental->rental_amount = $rentalAmount;
         $rental->status        = 'finished';
@@ -134,10 +143,40 @@ class RentalService
         $rental->save();
     }
 
+    public function getFinishedUnpaidRentals()
+    {
+        return Rental::with(['console', 'employee', 'payments'])
+            ->where(function ($q) {
+                // status 'finished' (belum bayar sama sekali)
+                $q->where('status', 'finished')
+                  // status 'half_paid' yang sudah selesai (ended_at ada, berarti sudah diklik Selesai)
+                  ->orWhere(function ($q2) {
+                      $q2->where('status', 'half_paid')
+                         ->whereNotNull('ended_at');
+                  });
+            })
+            ->orderBy('ended_at', 'desc')
+            ->get()
+            ->map(function ($rental) {
+                $paid = $rental->payments->sum('amount');
+                return array_merge($rental->toArray(), [
+                    'paid_amount'      => $paid,
+                    'remaining_amount' => max(0, $rental->total_amount - $paid),
+                ]);
+            });
+    }
+
     public function getActiveRentals()
     {
         return Rental::with(['console', 'employee', 'fnbItems.fnbItem'])
-            ->where('status', 'running')
+            ->where(function ($q) {
+                // Masih aktif: status running, ATAU half_paid tapi belum selesai (DP mid-session)
+                $q->where('status', 'running')
+                  ->orWhere(function ($q2) {
+                      $q2->where('status', 'half_paid')
+                         ->whereNull('ended_at');
+                  });
+            })
             ->orderBy('started_at', 'asc')
             ->get()
             ->map(function ($rental) {
@@ -153,17 +192,29 @@ class RentalService
                     elseif ($remainingMinutes <= 15) $status = 'finishing_soon';
                 }
 
-                // Calculate current rental amount for open time
+                // Calculate current rental amount
                 $currentRentalAmount = $rental->rental_amount;
                 if ($rental->rental_type === 'open_time') {
-                    $currentRentalAmount = round(($rental->console->price_per_hour / 60) * $durationMinutes);
+                    if ($rental->scheduled_end_at) {
+                        // Fixed duration booking — price based on the scheduled duration
+                        $scheduledMinutes = $rental->started_at->diffInMinutes($rental->scheduled_end_at);
+                        $currentRentalAmount = round(($rental->console->price_per_hour / 60) * $scheduledMinutes);
+                    } else {
+                        // Pure open time — round up to nearest 30-min block (minimum 30 min)
+                        $billedMinutes = (int)(ceil(max($durationMinutes, 1) / 30) * 30);
+                        $currentRentalAmount = round(($rental->console->price_per_hour / 60) * $billedMinutes);
+                    }
                 }
 
                 return array_merge($rental->toArray(), [
-                    'duration_minutes'  => $durationMinutes,
-                    'remaining_minutes' => $remainingMinutes,
-                    'live_status'       => $status,
-                    'current_total'     => $currentRentalAmount + $rental->fnb_amount + $rental->extra_amount,
+                    'duration_minutes'     => $durationMinutes,
+                    'remaining_minutes'    => $remainingMinutes,
+                    'live_status'          => $status,
+                    'current_total'        => $currentRentalAmount + $rental->fnb_amount + $rental->extra_amount,
+                    'is_fixed_duration'    => !is_null($rental->scheduled_end_at),
+                    'fixed_rental_amount'  => $currentRentalAmount,
+                    'is_dp'                => $rental->status === 'half_paid',
+                    'paid_amount'          => (float) $rental->paid_amount,
                 ]);
             });
     }

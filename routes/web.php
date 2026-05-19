@@ -8,6 +8,7 @@ use App\Http\Controllers\FnbController;
 use App\Http\Controllers\RentalController;
 use App\Http\Controllers\CashOutboundController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReservationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn() => redirect()->route('dashboard'));
@@ -52,6 +53,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Cash Outbound
     Route::resource('cash-outbounds', CashOutboundController::class)->except(['create', 'edit', 'show']);
+
+    // Reservations
+    Route::get('/reservations', [ReservationController::class, 'index'])->name('reservations.index');
+    Route::post('/reservations', [ReservationController::class, 'store'])->name('reservations.store');
+    Route::put('/reservations/{reservation}', [ReservationController::class, 'update'])->name('reservations.update');
+    Route::delete('/reservations/{reservation}', [ReservationController::class, 'destroy'])->name('reservations.destroy');
+    Route::post('/reservations/{reservation}/convert', [ReservationController::class, 'convert'])->name('reservations.convert');
 
     // Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

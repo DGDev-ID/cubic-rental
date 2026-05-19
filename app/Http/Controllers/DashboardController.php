@@ -31,7 +31,8 @@ class DashboardController extends Controller
     public function roomMonitor(): Response
     {
         return Inertia::render('Dashboard/RoomMonitor', [
-            'activeRentals' => $this->rentalService->getActiveRentals(),
+            'activeRentals'   => $this->rentalService->getActiveRentals(),
+            'finishedRentals' => $this->rentalService->getFinishedUnpaidRentals(),
         ]);
     }
 }
