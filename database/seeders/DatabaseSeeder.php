@@ -61,15 +61,6 @@ class DatabaseSeeder extends Seeder
             $console->games()->attach(Game::inRandomOrder()->take(4)->pluck('id'));
         }
 
-        // Packages
-        Package::insert([
-            ['name' => '3 Hours Package',  'duration_hours' => 3, 'price' => 40000,  'description' => 'Hemat 3 jam bermain', 'is_active' => true,  'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'Midnight Package', 'duration_hours' => 5, 'price' => 60000,  'description' => 'Main tengah malam',   'is_active' => true,  'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'Couple Package',   'duration_hours' => 2, 'price' => 55000,  'description' => '2 orang 2 jam',      'is_active' => true,  'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'Family Package',   'duration_hours' => 4, 'price' => 100000, 'description' => '4 orang 4 jam',      'is_active' => true,  'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'Weekend Blast',    'duration_hours' => 6, 'price' => 80000,  'description' => 'Spesial weekend',    'is_active' => true,  'created_at' => now(), 'updated_at' => now()],
-        ]);
-
         // FNB Items
         FnbItem::insert([
             ['name' => 'Mie Goreng',     'category' => 'food',  'price' => 15000, 'stock' => 50, 'is_available' => true,  'created_at' => now(), 'updated_at' => now()],
@@ -91,47 +82,6 @@ class DatabaseSeeder extends Seeder
             ['name' => 'Tanpa MSG',    'price' => 0,    'is_available' => true, 'created_at' => now(), 'updated_at' => now()],
             ['name' => 'Es Banyak',    'price' => 0,    'is_available' => true, 'created_at' => now(), 'updated_at' => now()],
             ['name' => 'Gula Sedikit', 'price' => 0,    'is_available' => true, 'created_at' => now(), 'updated_at' => now()],
-        ]);
-
-        // Sample completed rentals
-        $emp1 = Employee::first();
-        for ($i = 0; $i < 5; $i++) {
-            $start = Carbon::today()->addHours(rand(8, 18));
-            $end   = $start->copy()->addHours(rand(1, 3));
-            $diffMinutes = $start->diffInMinutes($end);
-            $pricePerHour = 15000;
-            $rentalAmt = round(($pricePerHour / 60) * $diffMinutes);
-            $fnbAmt    = rand(0, 30000);
-            $total     = $rentalAmt + $fnbAmt;
-            $rental = Rental::create([
-                'transaction_code' => 'TRX-' . strtoupper(uniqid()),
-                'customer_name'    => fake()->name(),
-                'console_id'       => Console::inRandomOrder()->first()->id,
-                'employee_id'      => Employee::where('status', 'active')->inRandomOrder()->first()->id,
-                'package_id'       => null,
-                'rental_type'      => 'open_time',
-                'status'           => 'finished',
-                'started_at'       => $start,
-                'ended_at'         => $end,
-                'rental_amount'    => $rentalAmt,
-                'fnb_amount'       => $fnbAmt,
-                'extra_amount'     => 0,
-                'total_amount'     => $total,
-                'paid_amount'      => $total,
-                'notes'            => '',
-            ]);
-            RentalPayment::create([
-                'rental_id' => $rental->id,
-                'method'    => collect(['cash', 'qris'])->random(),
-                'amount'    => $total,
-                'notes'     => null,
-            ]);
-        }
-
-        // Sample cash outbounds
-        CashOutbound::insert([
-            ['nominal' => 50000,  'notes' => 'Beli sabun cuci piring', 'employee_id' => $emp1->id, 'date' => today(), 'created_at' => now(), 'updated_at' => now()],
-            ['nominal' => 100000, 'notes' => 'Beli bahan minuman',     'employee_id' => $emp1->id, 'date' => today(), 'created_at' => now(), 'updated_at' => now()],
         ]);
     }
 }
