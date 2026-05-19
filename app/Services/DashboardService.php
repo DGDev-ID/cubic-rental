@@ -13,18 +13,18 @@ class DashboardService
         $today = Carbon::today();
 
         $todayRentals = Rental::whereDate('started_at', $today)->get();
-        $finishedToday = $todayRentals->where('status', 'finished');
+        $finishedToday = $todayRentals->whereIn('status', ['finished', 'paid', 'half_paid']);
 
         $totalOmzetRental = $finishedToday->sum('rental_amount') + $finishedToday->sum('extra_amount');
         $totalOmzetFnb    = $finishedToday->sum('fnb_amount');
         $totalOmzet       = $finishedToday->sum('total_amount');
         $totalOutbound    = CashOutbound::whereDate('date', $today)->sum('nominal');
 
-        $activeRentals = Rental::where('status', 'running')->count();
-        $activeRooms   = Rental::where('status', 'running')->distinct('console_id')->count('console_id');
+        $activeRentals = Rental::whereIn('status', ['running', 'half_paid'])->whereNull('ended_at')->count();
+        $activeRooms   = Rental::whereIn('status', ['running', 'half_paid'])->whereNull('ended_at')->distinct('console_id')->count('console_id');
         $omzetBulanIni = Rental::whereYear('started_at', $today->year)
             ->whereMonth('started_at', $today->month)
-            ->where('status', 'finished')
+            ->whereIn('status', ['finished', 'paid', 'half_paid'])
             ->sum('total_amount');
 
         return [
@@ -48,7 +48,7 @@ class DashboardService
         for ($i = $days - 1; $i >= 0; $i--) {
             $date = Carbon::today()->subDays($i);
             $labels[] = $date->format('d M');
-            $dayRentals = Rental::whereDate('started_at', $date)->where('status', 'finished')->get();
+            $dayRentals = Rental::whereDate('started_at', $date)->whereIn('status', ['finished', 'paid', 'half_paid'])->get();
             $rentalData[] = $dayRentals->sum('rental_amount') + $dayRentals->sum('extra_amount');
             $fnbData[]    = $dayRentals->sum('fnb_amount');
         }
@@ -66,7 +66,7 @@ class DashboardService
             $labels[] = $month->format('M Y');
             $data[] = Rental::whereYear('started_at', $month->year)
                 ->whereMonth('started_at', $month->month)
-                ->where('status', 'finished')
+                ->whereIn('status', ['finished', 'paid', 'half_paid'])
                 ->sum('total_amount');
         }
 

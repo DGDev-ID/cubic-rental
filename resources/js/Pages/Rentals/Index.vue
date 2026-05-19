@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
-import { Timer, Gamepad2, Play, CalendarClock } from 'lucide-vue-next'
+import { Timer, Gamepad2, Play, CalendarClock, Search } from 'lucide-vue-next'
 
 interface Console { id: number; name: string; type: string; price_per_hour: number }
 interface Employee { id: number; name: string }
@@ -25,6 +25,23 @@ const form = useForm({
 })
 
 const selectedConsole = computed(() => props.consoles.find(c => c.id === form.console_id))
+
+// Search & filter
+const searchQuery = ref('')
+const filterType = ref<string>('all')
+
+const availableTypes = computed(() => {
+  const types = [...new Set(props.consoles.map(c => c.type))]
+  return types
+})
+
+const filteredConsoles = computed(() => {
+  return props.consoles.filter(c => {
+    const matchSearch = c.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+    const matchType = filterType.value === 'all' || c.type === filterType.value
+    return matchSearch && matchType
+  })
+})
 
 // Reservasi per console yang ada upcoming
 const consoleReservations = computed(() => (consoleId: number) =>
@@ -69,8 +86,46 @@ const typeColors: Record<string, string> = {
           <!-- Console -->
           <div>
             <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Console / Room *</label>
+
+            <!-- Search + Filter -->
+            <div class="flex flex-col sm:flex-row gap-2 mb-3">
+              <!-- Search bar -->
+              <div class="relative flex-1">
+                <Search :size="14" class="absolute left-3 top-1/2 -translate-y-1/2" style="color:#64748b;" />
+                <input v-model="searchQuery"
+                  type="text"
+                  placeholder="Cari nama room..."
+                  class="w-full pl-8 pr-3 py-2 rounded-xl text-white text-xs outline-none transition-colors"
+                  style="background:#12121a; border:1px solid #2a2a3a;" />
+              </div>
+              <!-- Category filter chips -->
+              <div class="flex gap-1.5 flex-wrap items-center">
+                <button type="button"
+                  @click="filterType = 'all'"
+                  class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  :style="filterType === 'all'
+                    ? 'background:linear-gradient(135deg,#8b5cf6,#3b82f6); color:white;'
+                    : 'background:#12121a; color:#94a3b8; border:1px solid #2a2a3a;'">
+                  Semua
+                </button>
+                <button v-for="t in availableTypes" :key="t" type="button"
+                  @click="filterType = t"
+                  class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize"
+                  :style="filterType === t
+                    ? `background:${typeColors[t] ?? '#8b5cf6'}22; color:${typeColors[t] ?? '#8b5cf6'}; border:1px solid ${typeColors[t] ?? '#8b5cf6'}99;`
+                    : 'background:#12121a; color:#94a3b8; border:1px solid #2a2a3a;'">
+                  {{ t.toUpperCase() }}
+                </button>
+              </div>
+            </div>
+
+            <!-- No results -->
+            <p v-if="filteredConsoles.length === 0" class="text-xs py-4 text-center" style="color:#64748b;">
+              Tidak ada room ditemukan.
+            </p>
+
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              <button v-for="c in consoles" :key="c.id" type="button"
+              <button v-for="c in filteredConsoles" :key="c.id" type="button"
                 @click="form.console_id = c.id"
                 class="p-3 rounded-xl text-left transition-all relative"
                 :style="form.console_id === c.id
