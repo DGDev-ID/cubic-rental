@@ -108,7 +108,7 @@ const chartOptions = {
       <StatCard title="Omzet FNB Hari Ini" :value="formatCurrency(summary.total_omzet_fnb)" color="green">
         <template #icon><ShoppingCartIcon class="w-5 h-5" /></template>
       </StatCard>
-      <StatCard title="Pengeluaran Bulan Ini" :value="formatCurrency(summary.total_cash_outbound)" color="red">
+      <StatCard title="Pengeluaran Bulan Ini" :value="formatCurrency(summary.pengeluaran_bulan_ini)" color="red">
         <template #icon><ArrowDownCircleIcon class="w-5 h-5" /></template>
       </StatCard>
       <StatCard title="Omzet Bulan Ini" :value="formatCurrency(summary.total_omzet_bulan_ini)" color="blue">
