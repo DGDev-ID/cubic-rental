@@ -114,6 +114,18 @@ function doConvert() {
 
 // Duration quick chips
 const durationChips = [0.5, 1, 1.5, 2, 3, 4]
+
+function updateAddTime(e: Event) {
+  const time = (e.target as HTMLInputElement).value
+  const date = addForm.reserved_at?.split('T')[0] || new Date().toISOString().split('T')[0]
+  addForm.reserved_at = date + 'T' + time
+}
+
+function updateEditTime(e: Event) {
+  const time = (e.target as HTMLInputElement).value
+  const date = editForm.reserved_at?.split('T')[0] || new Date().toISOString().split('T')[0]
+  editForm.reserved_at = date + 'T' + time
+}
 </script>
 
 <template>
@@ -266,10 +278,27 @@ const durationChips = [0.5, 1, 1.5, 2, 3, 4]
           </div>
         </div>
         <div>
-          <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Waktu Reservasi</label>
-          <input v-model="addForm.reserved_at" type="datetime-local" required
-            class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
-            style="background:#12121a; border:1px solid #2a2a3a;" />
+          <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Tanggal & Waktu Reservasi</label>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="relative">
+              <input v-model="addForm.reserved_at" type="date" required
+                class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+                style="background:#12121a; border:1px solid #2a2a3a;" />
+              <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" fill="none" stroke="white" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div class="relative">
+              <input :value="addForm.reserved_at ? addForm.reserved_at.split('T')[1] : ''" 
+                @input="updateAddTime"
+                type="time"
+                class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+                style="background:#12121a; border:1px solid #2a2a3a;" />
+              <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" fill="none" stroke="white" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
         </div>
         <div>
           <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Durasi (opsional)</label>
@@ -339,10 +368,27 @@ const durationChips = [0.5, 1, 1.5, 2, 3, 4]
           </div>
         </div>
         <div>
-          <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Waktu Reservasi</label>
-          <input v-model="editForm.reserved_at" type="datetime-local" required
-            class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
-            style="background:#12121a; border:1px solid #2a2a3a;" />
+          <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Tanggal & Waktu Reservasi</label>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="relative">
+              <input v-model="editForm.reserved_at" type="date" required
+                class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+                style="background:#12121a; border:1px solid #2a2a3a;" />
+              <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" fill="none" stroke="white" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div class="relative">
+              <input :value="editForm.reserved_at ? editForm.reserved_at.split('T')[1] : ''" 
+                @input="updateEditTime"
+                type="time"
+                class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+                style="background:#12121a; border:1px solid #2a2a3a;" />
+              <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" fill="none" stroke="white" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
