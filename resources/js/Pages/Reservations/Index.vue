@@ -115,16 +115,44 @@ function doConvert() {
 // Duration quick chips
 const durationChips = [0.5, 1, 1.5, 2, 3, 4]
 
+function updateAddDate(e: Event) {
+  const date = (e.target as HTMLInputElement).value
+  const time = addForm.reserved_at?.split('T')[1] || '00:00'
+  addForm.reserved_at = date + 'T' + time
+}
 function updateAddTime(e: Event) {
   const time = (e.target as HTMLInputElement).value
   const date = addForm.reserved_at?.split('T')[0] || new Date().toISOString().split('T')[0]
   addForm.reserved_at = date + 'T' + time
 }
 
+function updateEditDate(e: Event) {
+  const date = (e.target as HTMLInputElement).value
+  const time = editForm.reserved_at?.split('T')[1] || '00:00'
+  editForm.reserved_at = date + 'T' + time
+}
 function updateEditTime(e: Event) {
   const time = (e.target as HTMLInputElement).value
   const date = editForm.reserved_at?.split('T')[0] || new Date().toISOString().split('T')[0]
   editForm.reserved_at = date + 'T' + time
+}
+
+// Price helpers
+const addSelectedConsole = computed(() => props.consoles.find(c => c.id === addForm.console_id) ?? null)
+const editSelectedConsole = computed(() => props.consoles.find(c => c.id === editForm.console_id) ?? null)
+
+function estimatedTotal(pricePerHour: number, duration: string | number) {
+  const h = Number(duration)
+  return h > 0 ? pricePerHour * h : null
+}
+
+function addEstimated() {
+  if (!addSelectedConsole.value) return null
+  return estimatedTotal(addSelectedConsole.value.price_per_hour, addForm.duration_hours)
+}
+function editEstimated() {
+  if (!editSelectedConsole.value) return null
+  return estimatedTotal(editSelectedConsole.value.price_per_hour, editForm.duration_hours)
 }
 </script>
 
@@ -178,6 +206,7 @@ function updateEditTime(e: Event) {
             <th class="text-left px-4 py-3 text-xs font-semibold" style="color:#94a3b8;">Customer</th>
             <th class="text-left px-4 py-3 text-xs font-semibold" style="color:#94a3b8;">Room / Console</th>
             <th class="text-left px-4 py-3 text-xs font-semibold" style="color:#94a3b8;">Durasi</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold" style="color:#94a3b8;">Harga</th>
             <th class="text-left px-4 py-3 text-xs font-semibold" style="color:#94a3b8;">Status</th>
             <th class="text-right px-4 py-3 text-xs font-semibold" style="color:#94a3b8;">Aksi</th>
           </tr>
@@ -200,6 +229,13 @@ function updateEditTime(e: Event) {
             <td class="px-4 py-3">
               <span v-if="r.duration_hours" class="text-white">{{ r.duration_hours }}j</span>
               <span v-else style="color:#64748b;">Open</span>
+            </td>
+            <td class="px-4 py-3">
+              <p class="text-white text-xs">{{ formatCurrency(r.console.price_per_hour) }}<span style="color:#64748b;">/j</span></p>
+              <p v-if="r.duration_hours" class="text-xs font-semibold" style="color:#a78bfa;">
+                ≈ {{ formatCurrency(r.console.price_per_hour * r.duration_hours) }}
+              </p>
+              <p v-else class="text-xs" style="color:#64748b;">Open end</p>
             </td>
             <td class="px-4 py-3">
               <span class="px-2 py-0.5 rounded-full text-xs font-medium"
@@ -252,6 +288,12 @@ function updateEditTime(e: Event) {
               <option :value="null">-- Pilih Room --</option>
               <option v-for="c in consoles" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
+            <div v-if="addSelectedConsole" class="mt-1.5 px-3 py-1.5 rounded-lg flex items-center justify-between" style="background:rgba(139,92,246,.1); border:1px solid rgba(139,92,246,.25);">
+              <span class="text-xs" style="color:#a78bfa;">{{ formatCurrency(addSelectedConsole.price_per_hour) }} / jam</span>
+              <span v-if="addEstimated()" class="text-xs font-semibold text-white">
+                ≈ {{ formatCurrency(addEstimated() ?? 0) }}
+              </span>
+            </div>
           </div>
           <div>
             <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Operator</label>
@@ -281,7 +323,9 @@ function updateEditTime(e: Event) {
           <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Tanggal & Waktu Reservasi</label>
           <div class="grid grid-cols-2 gap-3">
             <div class="relative">
-              <input v-model="addForm.reserved_at" type="date" required
+              <input :value="addForm.reserved_at ? addForm.reserved_at.split('T')[0] : ''"
+                @input="updateAddDate"
+                type="date" required
                 class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
                 style="background:#12121a; border:1px solid #2a2a3a;" />
               <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" fill="none" stroke="white" viewBox="0 0 24 24">
@@ -343,6 +387,12 @@ function updateEditTime(e: Event) {
               style="background:#12121a; border:1px solid #2a2a3a;">
               <option v-for="c in consoles" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
+            <div v-if="editSelectedConsole" class="mt-1.5 px-3 py-1.5 rounded-lg flex items-center justify-between" style="background:rgba(59,130,246,.1); border:1px solid rgba(59,130,246,.25);">
+              <span class="text-xs" style="color:#60a5fa;">{{ formatCurrency(editSelectedConsole.price_per_hour) }} / jam</span>
+              <span v-if="editEstimated()" class="text-xs font-semibold text-white">
+                ≈ {{ formatCurrency(editEstimated() ?? 0) }}
+              </span>
+            </div>
           </div>
           <div>
             <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Operator</label>
@@ -371,7 +421,9 @@ function updateEditTime(e: Event) {
           <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Tanggal & Waktu Reservasi</label>
           <div class="grid grid-cols-2 gap-3">
             <div class="relative">
-              <input v-model="editForm.reserved_at" type="date" required
+              <input :value="editForm.reserved_at ? editForm.reserved_at.split('T')[0] : ''"
+                @input="updateEditDate"
+                type="date" required
                 class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
                 style="background:#12121a; border:1px solid #2a2a3a;" />
               <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" fill="none" stroke="white" viewBox="0 0 24 24">
