@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
+import { Download } from 'lucide-vue-next'
 
 interface RentalRow {
   id: number; transaction_code: string; customer_name: string; rental_type: string;
@@ -18,7 +19,13 @@ const props = defineProps<{
   consoles: { id: number; name: string }[]
 }>()
 
-const filters = ref({ ...props.filters })
+const filters = ref({
+  search: props.filters?.search ?? '',
+  date: props.filters?.date ?? '',
+  employee_id: props.filters?.employee_id ?? '',
+  console_id: props.filters?.console_id ?? '',
+  payment_method: props.filters?.payment_method ?? ''
+})
 let debounce: ReturnType<typeof setTimeout>
 watch(filters, (v) => {
   clearTimeout(debounce)
@@ -35,6 +42,17 @@ function formatDt(d: string | null) {
   return new Date(d).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+function exportExcel() {
+  const q = new URLSearchParams()
+  if (filters.value.search) q.append('search', filters.value.search)
+  if (filters.value.date) q.append('date', filters.value.date)
+  if (filters.value.employee_id) q.append('employee_id', filters.value.employee_id)
+  if (filters.value.console_id) q.append('console_id', filters.value.console_id)
+  if (filters.value.payment_method) q.append('payment_method', filters.value.payment_method)
+
+  window.location.href = route('rentals.export') + '?' + q.toString()
+}
+
 const statusColor: Record<string, string> = {
   running: '#22d3ee', finished: '#22c55e', paid: '#a78bfa', cancelled: '#ef4444', half_paid: '#fbbf24',
 }
@@ -46,6 +64,13 @@ const detail = ref<RentalRow | null>(null)
 <template>
   <AppLayout>
     <template #header-title><h1 class="font-semibold text-white text-lg">Riwayat Transaksi</h1></template>
+    <template #header-actions>
+      <button @click="exportExcel"
+        class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-colors hover:opacity-90"
+        style="background:linear-gradient(135deg,#10b981,#059669);">
+        <Download :size="16" /> Export Excel
+      </button>
+    </template>
 
     <!-- Filters -->
     <div class="rounded-xl p-4 mb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"
@@ -55,7 +80,7 @@ const detail = ref<RentalRow | null>(null)
         style="background:#12121a; border:1px solid #2a2a3a;" />
       <input v-model="filters.date" type="date"
         class="px-3 py-2 rounded-xl text-sm text-white outline-none"
-        style="background:#12121a; border:1px solid #2a2a3a;" />
+        style="background:#12121a; border:1px solid #2a2a3a; color-scheme: dark;" />
       <select v-model="filters.employee_id"
         class="px-3 py-2 rounded-xl text-sm text-white outline-none"
         style="background:#12121a; border:1px solid #2a2a3a;">

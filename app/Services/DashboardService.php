@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Rental;
 use App\Models\FnbOrder;
 use App\Models\CashOutbound;
+use App\Models\Console;
 use Carbon\Carbon;
 
 class DashboardService
@@ -26,7 +27,7 @@ class DashboardService
         $totalOutbound   = CashOutbound::whereDate('date', $today)->sum('nominal');
 
         $activeRentals = Rental::whereIn('status', ['running', 'half_paid'])->whereNull('ended_at')->count();
-        $activeRooms   = Rental::whereIn('status', ['running', 'half_paid'])->whereNull('ended_at')->distinct('console_id')->count('console_id');
+        $totalRooms    = Console::count();
         $omzetBulanIni = Rental::whereYear('started_at', $today->year)
             ->whereMonth('started_at', $today->month)
             ->whereIn('status', ['finished', 'paid', 'half_paid'])
@@ -49,7 +50,7 @@ class DashboardService
             'total_omzet_fnb'           => (float) $totalOmzetFnb,
             'total_cash_outbound'       => (float) $totalOutbound,
             'total_active_rentals'      => $activeRentals,
-            'total_active_rooms'        => $activeRooms,
+            'total_active_rooms'        => $totalRooms,
             'total_omzet_bulan_ini'     => (float) $omzetBulanIni,
             'pengeluaran_bulan_ini'     => (float) $pengeluaranBulanIni,
             'laba_bersih_bulan_ini'     => $labaBersihBulanIni,

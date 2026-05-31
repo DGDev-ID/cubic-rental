@@ -100,8 +100,8 @@ class RentalService
             // Fixed duration booking — charge based on scheduled duration
             $billedMinutes = $rental->started_at->diffInMinutes($rental->scheduled_end_at);
         } else {
-            // Open time — round up to nearest 30-min block, minimum 30 min
-            $billedMinutes = (int)(ceil(max($minutes, 1) / 30) * 30);
+            // Open time — round up to nearest 10-min block, minimum 60 min
+            $billedMinutes = (int)(ceil(max($minutes, 60) / 10) * 10);
         }
 
         $rentalAmount = round(($rental->console->price_per_hour / 60) * $billedMinutes);
@@ -200,8 +200,8 @@ class RentalService
                         $scheduledMinutes = $rental->started_at->diffInMinutes($rental->scheduled_end_at);
                         $currentRentalAmount = round(($rental->console->price_per_hour / 60) * $scheduledMinutes);
                     } else {
-                        // Pure open time — round up to nearest 30-min block (minimum 30 min)
-                        $billedMinutes = (int)(ceil(max($durationMinutes, 1) / 30) * 30);
+                        // Pure open time — round up to nearest 10-min block (minimum 60 min)
+                        $billedMinutes = (int)(ceil(max($durationMinutes, 60) / 10) * 10);
                         $currentRentalAmount = round(($rental->console->price_per_hour / 60) * $billedMinutes);
                     }
                 }

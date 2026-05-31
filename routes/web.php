@@ -43,6 +43,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/rentals', [RentalController::class, 'index'])->name('rentals.index');
     Route::post('/rentals', [RentalController::class, 'store'])->name('rentals.store');
     Route::get('/rentals/history', [RentalController::class, 'history'])->name('rentals.history');
+    Route::get('/rentals/history/export', [RentalController::class, 'exportExcel'])->name('rentals.export');
     Route::get('/rentals/{rental}', [RentalController::class, 'show'])->name('rentals.show');
     Route::post('/rentals/{rental}/add-time', [RentalController::class, 'addTime'])->name('rentals.add-time');
     Route::post('/rentals/{rental}/add-fnb', [RentalController::class, 'addFnb'])->name('rentals.add-fnb');

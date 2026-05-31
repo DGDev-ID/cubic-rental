@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useForm } from '@inertiajs/vue3'
+import { ref, watch } from 'vue'
+import { useForm, router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import GamingModal from '@/Components/GamingModal.vue'
 import { Plus, Pencil, Trash2 } from 'lucide-vue-next'
@@ -10,11 +10,7 @@ interface Outbound {
   employee: { name: string } | null
 }
 
-defineProps<{
-  outbounds: { data: Outbound[]; links: any[]; total: number }
-  employees: { id: number; name: string }[]
-  total_this_month: number
-}>()
+
 
 function formatCurrency(v: number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v)
@@ -26,6 +22,18 @@ function formatDate(d: string) {
 const showModal = ref(false)
 const editId = ref<number | null>(null)
 const form = useForm({ nominal: 0, notes: '', date: new Date().toISOString().slice(0, 10), employee_id: null as number | null })
+
+const props = defineProps<{
+  outbounds: { data: Outbound[]; links: any[]; total: number }
+  employees: { id: number; name: string }[]
+  total_this_month: number
+  filters?: { date?: string }
+}>()
+
+const filterDate = ref(props.filters?.date || '')
+watch(filterDate, (value) => {
+  router.get(route('cash-outbounds.index'), { date: value }, { preserveState: true, replace: true })
+})
 
 function openCreate() { editId.value = null; form.reset(); showModal.value = true }
 function openEdit(o: Outbound) {
@@ -64,11 +72,17 @@ function destroy(id: number) {
       </button>
     </template>
 
-    <!-- Summary -->
+    <!-- Summary and Filter -->
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
       <div class="rounded-xl p-5" style="background:#1a1a26; border:1px solid #2a2a3a;">
         <p class="text-xs" style="color:#94a3b8;">Total Pengeluaran Bulan Ini</p>
         <p class="text-2xl font-bold mt-1" style="color:#ef4444;">{{ formatCurrency(total_this_month) }}</p>
+      </div>
+      <div class="rounded-xl p-5 flex flex-col justify-center" style="background:#1a1a26; border:1px solid #2a2a3a;">
+        <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Filter Tanggal</label>
+        <input v-model="filterDate" type="date"
+          class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+          style="background:#12121a; border:1px solid #2a2a3a; color-scheme: dark;" />
       </div>
     </div>
 

@@ -27,7 +27,8 @@ function formatCurrency(v: number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v)
 }
 function formatDateTime(d: string) {
-  return new Date(d).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const dt = d.endsWith('Z') ? d.slice(0, -1) : d;
+  return new Date(dt).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 // Status config
@@ -82,7 +83,7 @@ function openEdit(r: Reservation) {
   editForm.customer_name = r.customer_name
   editForm.customer_phone = r.customer_phone ?? ''
   // format datetime-local input value
-  editForm.reserved_at  = new Date(r.reserved_at).toISOString().slice(0, 16)
+  editForm.reserved_at  = r.reserved_at.slice(0, 16)
   editForm.duration_hours = r.duration_hours ?? ''
   editForm.notes        = r.notes ?? ''
   editForm.status       = r.status

@@ -246,7 +246,7 @@ function finishRental(id: number) {
             <span class="font-bold" style="color:#a78bfa;">{{ formatCurrency(rental.current_total) }}</span>
           </div>
           <p v-if="!rental.is_fixed_duration" class="text-xs mb-2" style="color:#64748b;">
-            *Dibulatkan per 30 menit, min. 30 menit
+            *Dibulatkan per 10 menit, minimal main 1 jam
           </p>
 
           <!-- Actions -->

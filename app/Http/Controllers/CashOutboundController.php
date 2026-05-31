@@ -11,17 +11,23 @@ use Illuminate\Http\RedirectResponse;
 
 class CashOutboundController extends Controller
 {
-    public function index(): Response
+    public function index(\Illuminate\Http\Request $request): Response
     {
+        $query = CashOutbound::with('employee');
+        if ($request->date) {
+            $query->whereDate('date', $request->date);
+        }
+
         return Inertia::render('CashOutbound/Index', [
-            'outbounds' => CashOutbound::with('employee')
+            'outbounds' => $query
                 ->orderByDesc('date')
                 ->orderByDesc('created_at')
-                ->paginate(20),
+                ->paginate(20)->withQueryString(),
             'employees' => Employee::where('status', 'active')->orderBy('name')->get(),
             'total_this_month' => CashOutbound::whereYear('date', now()->year)
                 ->whereMonth('date', now()->month)
                 ->sum('nominal'),
+            'filters' => $request->only('date'),
         ]);
     }
 

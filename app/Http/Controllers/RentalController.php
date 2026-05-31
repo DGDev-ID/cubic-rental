@@ -164,4 +164,70 @@ class RentalController extends Controller
             'filters'   => $request->only(['search', 'date', 'employee_id', 'console_id', 'payment_method']),
         ]);
     }
+
+    public function exportExcel(Request $request)
+    {
+        $query = Rental::with(['console', 'employee', 'payments'])
+            ->whereIn('status', ['finished', 'paid', 'half_paid', 'cancelled']);
+
+        if ($request->search) {
+            $query->where(function ($q) use ($request) {
+                $q->where('transaction_code', 'ilike', "%{$request->search}%")
+                  ->orWhere('customer_name', 'ilike', "%{$request->search}%");
+            });
+        }
+        if ($request->date) {
+            $query->whereDate('started_at', $request->date);
+        }
+        if ($request->employee_id) {
+            $query->where('employee_id', $request->employee_id);
+        }
+        if ($request->console_id) {
+            $query->where('console_id', $request->console_id);
+        }
+        if ($request->payment_method) {
+            $query->whereHas('payments', fn($q) => $q->where('method', $request->payment_method));
+        }
+
+        $rentals = $query->orderByDesc('started_at')->get();
+
+        $fileName = 'riwayat_transaksi_' . date('Y-m-d_H-i-s') . '.csv';
+
+        $headers = [
+            "Content-type"        => "text/csv; charset=UTF-8",
+            "Content-Disposition" => "attachment; filename=$fileName",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        $callback = function() use($rentals) {
+            $file = fopen('php://output', 'w');
+            fputs($file, "\xEF\xBB\xBF"); // Add BOM for UTF-8 Excel support
+            fputcsv($file, ['Kode Transaksi', 'Customer', 'Console', 'Jenis', 'Mulai', 'Selesai', 'Status', 'Metode Bayar', 'Subtotal Rental', 'FNB', 'Extra', 'Total', 'Dibayar']);
+
+            foreach ($rentals as $r) {
+                $methods = $r->payments->pluck('method')->join(', ');
+                fputcsv($file, [
+                    $r->transaction_code,
+                    $r->customer_name,
+                    $r->console->name ?? '-',
+                    $r->rental_type,
+                    $r->started_at ? $r->started_at->format('Y-m-d H:i') : '-',
+                    $r->ended_at ? $r->ended_at->format('Y-m-d H:i') : '-',
+                    $r->status,
+                    $methods,
+                    $r->rental_amount,
+                    $r->fnb_amount,
+                    $r->extra_amount,
+                    $r->total_amount,
+                    $r->paid_amount,
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return new \Symfony\Component\HttpFoundation\StreamedResponse($callback, 200, $headers);
+    }
 }

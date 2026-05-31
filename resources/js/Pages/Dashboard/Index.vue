@@ -114,8 +114,8 @@ const chartOptions = {
       <StatCard title="Omzet Bulan Ini" :value="formatCurrency(summary.total_omzet_bulan_ini)" color="blue">
         <template #icon><CalendarDaysIcon class="w-5 h-5" /></template>
       </StatCard>
-      <StatCard title="Laba Bersih Bulan Ini" :value="formatCurrency(summary.laba_bersih_bulan_ini)" :color="summary.laba_bersih_bulan_ini >= 0 ? 'green' : 'red'">
-        <template #icon><TrophyIcon class="w-5 h-5" /></template>
+      <StatCard title="Pengeluaran Hari Ini" :value="formatCurrency(summary.total_cash_outbound)" color="red">
+        <template #icon><ArrowDownCircleIcon class="w-5 h-5" /></template>
       </StatCard>
     </div>
 
