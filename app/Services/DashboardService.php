@@ -24,7 +24,7 @@ class DashboardService
         $fnbOrdersToday  = FnbOrder::whereDate('paid_at', $today)->where('status', 'paid')->sum('total_amount');
         $totalOmzetFnb   = $totalOmzetFnbRental + $fnbOrdersToday;
         $totalOmzet      = $finishedToday->sum('total_amount') + $fnbOrdersToday;
-        $totalOutbound   = CashOutbound::whereDate('date', $today)->sum('nominal');
+        $totalOutbound   = CashOutbound::where('date', $today->toDateString())->sum('nominal');
 
         $activeRentals = Rental::whereIn('status', ['running', 'half_paid'])->whereNull('ended_at')->count();
         $totalRooms    = Console::count();

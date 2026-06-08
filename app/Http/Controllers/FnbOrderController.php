@@ -17,7 +17,7 @@ class FnbOrderController extends Controller
 {
     public function index(): Response
     {
-        $orders = FnbOrder::with(['employee', 'items.fnbItem'])
+        $orders = FnbOrder::with(['employee', 'console', 'items.fnbItem'])
             ->latest()
             ->paginate(20);
 
@@ -26,6 +26,7 @@ class FnbOrderController extends Controller
             'fnbItems'  => FnbItem::where('is_available', true)->orderBy('category')->orderBy('name')->get(),
             'fnbAddons' => FnbAddon::where('is_available', true)->orderBy('name')->get(),
             'employees' => Employee::orderBy('name')->get(),
+            'consoles'  => \App\Models\Console::orderBy('name')->get(),
         ]);
     }
 
@@ -33,6 +34,7 @@ class FnbOrderController extends Controller
     {
         $request->validate([
             'employee_id'    => 'required|exists:employees,id',
+            'console_id'     => 'nullable|exists:consoles,id',
             'customer_name'  => 'nullable|string|max:100',
             'notes'          => 'nullable|string',
             'payment_method' => 'required|in:cash,qris',
@@ -76,6 +78,7 @@ class FnbOrderController extends Controller
             'code'           => $code,
             'customer_name'  => $request->customer_name,
             'employee_id'    => $request->employee_id,
+            'console_id'     => $request->console_id,
             'total_amount'   => $totalAmount,
             'status'         => 'paid',
             'payment_method' => $request->payment_method,

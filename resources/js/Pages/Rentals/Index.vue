@@ -50,7 +50,7 @@ const consoleReservations = computed(() => (consoleId: number) =>
 
 const statusLabel: Record<string, string> = { pending: 'Menunggu', confirmed: 'Dikonfirmasi' }
 
-const durationChips = [1, 1.5, 2, 3, 4, 5]
+const durationChips = [1, 2, 3, 4, 5]
 
 function formatCurrency(v: number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v)

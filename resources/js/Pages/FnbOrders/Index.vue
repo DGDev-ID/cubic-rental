@@ -26,6 +26,7 @@ const props = defineProps<{
   fnbItems: FnbItem[]
   fnbAddons: FnbAddon[]
   employees: Employee[]
+  consoles: { id: number; name: string }[]
 }>()
 
 // POS State
@@ -38,6 +39,7 @@ const showDetail   = ref<Order | null>(null)
 
 const checkoutForm = useForm({
   employee_id:    null as number | null,
+  console_id:     null as number | null,
   customer_name:  '',
   notes:          '',
   payment_method: 'cash' as string,
@@ -377,6 +379,15 @@ const catColor = (cat: string) => categoryColors[cat] ?? '#8b5cf6'
               style="background:#12121a; border:1px solid #2a2a3a;">
               <option :value="null">-- Pilih Operator --</option>
               <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs mb-1 block" style="color:#94a3b8;">Room / Console (opsional)</label>
+            <select v-model="checkoutForm.console_id"
+              class="w-full px-3 py-2.5 rounded-xl text-white text-sm outline-none"
+              style="background:#12121a; border:1px solid #2a2a3a;">
+              <option :value="null">-- Tidak pilih room --</option>
+              <option v-for="c in consoles" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
           </div>
           <div>

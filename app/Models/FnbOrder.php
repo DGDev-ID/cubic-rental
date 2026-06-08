@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class FnbOrder extends Model
 {
     protected $fillable = [
-        'code', 'customer_name', 'employee_id',
+        'code', 'customer_name', 'employee_id', 'console_id',
         'total_amount', 'status', 'payment_method', 'notes', 'paid_at',
     ];
 
@@ -21,6 +21,11 @@ class FnbOrder extends Model
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function console(): BelongsTo
+    {
+        return $this->belongsTo(Console::class);
     }
 
     public function items(): HasMany

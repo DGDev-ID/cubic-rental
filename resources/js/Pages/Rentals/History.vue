@@ -14,10 +14,13 @@ interface RentalRow {
 
 const props = defineProps<{
   rentals: { data: RentalRow[]; links: any[]; total: number }
+  fnb_orders?: { data: any[]; links: any[]; total: number }
   filters: { search: string; date: string; employee_id: string; console_id: string; payment_method: string }
   employees: { id: number; name: string }[]
   consoles: { id: number; name: string }[]
 }>()
+
+const activeTab = ref<'rental' | 'fnb'>('rental')
 
 const filters = ref({
   search: props.filters?.search ?? '',
@@ -104,11 +107,19 @@ const detail = ref<RentalRow | null>(null)
       </select>
     </div>
 
-    <!-- Total -->
-    <p class="text-xs mb-3" style="color:#64748b;">{{ rentals.total }} transaksi</p>
+    <div class="flex gap-1 mb-4 p-1 rounded-xl w-fit" style="background:#1a1a26; border:1px solid #2a2a3a;">
+      <button @click="activeTab = 'rental'" class="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+        :style="activeTab === 'rental' ? 'background:linear-gradient(135deg,#8b5cf6,#3b82f6); color:white;' : 'color:#94a3b8;'">
+        Rental ({{ rentals.total }})
+      </button>
+      <button @click="activeTab = 'fnb'" class="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+        :style="activeTab === 'fnb' ? 'background:linear-gradient(135deg,#10b981,#059669); color:white;' : 'color:#94a3b8;'">
+        FnB Only ({{ fnb_orders?.total || 0 }})
+      </button>
+    </div>
 
-    <!-- Table -->
-    <div class="rounded-xl overflow-hidden" style="border:1px solid #2a2a3a;">
+    <!-- Table Rental -->
+    <div v-if="activeTab === 'rental'" class="rounded-xl overflow-hidden" style="border:1px solid #2a2a3a;">
       <table class="w-full text-sm">
         <thead style="background:#12121a;">
           <tr>
@@ -162,13 +173,60 @@ const detail = ref<RentalRow | null>(null)
       </table>
     </div>
 
+    <!-- Table FnB -->
+    <div v-if="activeTab === 'fnb' && fnb_orders" class="rounded-xl overflow-hidden" style="border:1px solid #2a2a3a;">
+      <table class="w-full text-sm">
+        <thead style="background:#12121a;">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Kode</th>
+            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Customer</th>
+            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Console</th>
+            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Waktu</th>
+            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Total</th>
+            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Status</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="fnb_orders.data.length === 0">
+            <td colspan="7" class="px-4 py-10 text-center text-xs" style="color:#64748b;">Tidak ada data</td>
+          </tr>
+          <tr v-for="r in fnb_orders.data" :key="r.id"
+            class="transition-colors" style="border-top:1px solid #1a1a26;">
+            <td class="px-4 py-3 font-mono text-xs" style="color:#94a3b8;">{{ r.code }}</td>
+            <td class="px-4 py-3 text-white">{{ r.customer_name || '-' }}</td>
+            <td class="px-4 py-3 text-white">{{ r.console?.name || '-' }}</td>
+            <td class="px-4 py-3 text-xs" style="color:#94a3b8;">{{ formatDt(r.paid_at) }}</td>
+            <td class="px-4 py-3 font-semibold" style="color:#10b981;">{{ formatCurrency(r.total_amount) }}</td>
+            <td class="px-4 py-3">
+              <span class="text-xs px-2 py-1 rounded-full" style="background:rgba(34,197,94,.15); color:#22c55e;">
+                Lunas
+              </span>
+            </td>
+            <td class="px-4 py-3"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <!-- Pagination -->
-    <div class="flex gap-1 mt-4 justify-center flex-wrap">
+    <div v-if="activeTab === 'rental'" class="flex gap-1 mt-4 justify-center flex-wrap">
       <template v-for="link in rentals.links" :key="link.label">
         <a v-if="link.url" :href="link.url"
           class="px-3 py-1.5 rounded-xl text-xs"
           :style="link.active
             ? 'background:rgba(139,92,246,.3); color:white; border:1px solid rgba(139,92,246,.5);'
+            : 'background:#1a1a26; color:#94a3b8; border:1px solid #2a2a3a;'"
+          v-html="link.label" />
+        <span v-else class="px-3 py-1.5 rounded-xl text-xs" style="color:#3a3a4a;" v-html="link.label" />
+      </template>
+    </div>
+    <div v-if="activeTab === 'fnb' && fnb_orders" class="flex gap-1 mt-4 justify-center flex-wrap">
+      <template v-for="link in fnb_orders.links" :key="link.label">
+        <a v-if="link.url" :href="link.url"
+          class="px-3 py-1.5 rounded-xl text-xs"
+          :style="link.active
+            ? 'background:rgba(16,185,129,.3); color:white; border:1px solid rgba(16,185,129,.5);'
             : 'background:#1a1a26; color:#94a3b8; border:1px solid #2a2a3a;'"
           v-html="link.label" />
         <span v-else class="px-3 py-1.5 rounded-xl text-xs" style="color:#3a3a4a;" v-html="link.label" />
