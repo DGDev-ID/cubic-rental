@@ -238,7 +238,7 @@ const detail = ref<RentalRow | null>(null)
       <h3 class="text-sm font-semibold text-white mb-3">Detail – {{ detail.transaction_code }}</h3>
       <div class="grid grid-cols-2 gap-y-2 text-sm">
         <div><span style="color:#94a3b8;">Operator</span><p class="text-white">{{ detail.employee.name }}</p></div>
-        <div><span style="color:#94a3b8;">Tipe</span><p class="text-white">{{ detail.rental_type }}</p></div>
+        <div><span style="color:#94a3b8;">Tipe</span><p class="text-white capitalize">{{ detail.rental_type.replace('_', ' ') }}</p></div>
         <div><span style="color:#94a3b8;">Mulai</span><p class="text-white">{{ formatDt(detail.started_at) }}</p></div>
         <div><span style="color:#94a3b8;">Selesai</span><p class="text-white">{{ formatDt(detail.ended_at) }}</p></div>
         <div class="col-span-2 mt-2">

@@ -16,9 +16,11 @@ class RentalService
     {
         $console = Console::findOrFail($data['console_id']);
         $scheduledEnd = null;
+        $rentalType = 'open_time';
 
         if (!empty($data['duration_hours'])) {
             $scheduledEnd = Carbon::now()->addMinutes((int) round($data['duration_hours'] * 60));
+            $rentalType = 'duration';
         }
 
         $rental = Rental::create([
@@ -27,7 +29,7 @@ class RentalService
             'console_id'       => $data['console_id'],
             'employee_id'      => $data['employee_id'],
             'package_id'       => null,
-            'rental_type'      => 'open_time',
+            'rental_type'      => $rentalType,
             'status'           => 'running',
             'started_at'       => Carbon::now(),
             'scheduled_end_at' => $scheduledEnd,
@@ -194,7 +196,7 @@ class RentalService
 
                 // Calculate current rental amount
                 $currentRentalAmount = $rental->rental_amount;
-                if ($rental->rental_type === 'open_time') {
+                if ($rental->rental_type === 'open_time' || $rental->rental_type === 'duration') {
                     if ($rental->scheduled_end_at) {
                         // Fixed duration booking — price based on the scheduled duration
                         $scheduledMinutes = $rental->started_at->diffInMinutes($rental->scheduled_end_at);

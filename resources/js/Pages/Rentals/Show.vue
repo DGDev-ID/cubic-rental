@@ -159,8 +159,8 @@ function removeFnbItem(fnbItemId: number) {
             <span style="color:#94a3b8;">Customer: <span class="text-white">{{ rental.customer_name }}</span></span>
             <span style="color:#94a3b8;">Operator: <span class="text-white">{{ rental.employee.name }}</span></span>
             <span style="color:#94a3b8;">Tipe:
-              <span class="font-medium" style="color:#a78bfa;">
-                {{ rental.scheduled_end_at ? `Open Time (${rental.duration_minutes ? Math.round(rental.duration_minutes / 60 * 10) / 10 : ''}j)` : 'Open Time' }}
+              <span class="font-medium capitalize" style="color:#a78bfa;">
+                {{ rental.rental_type === 'duration' ? `Durasi (${Math.round((new Date(rental.scheduled_end_at!).getTime() - new Date(rental.started_at).getTime()) / 3600000 * 10) / 10}j)` : rental.rental_type.replace('_', ' ') }}
               </span>
             </span>
             <span v-if="rental.status === 'half_paid'" class="px-2 py-0.5 rounded-full text-xs font-semibold" style="background:rgba(251,191,36,.2); color:#fbbf24; border:1px solid rgba(251,191,36,.4);">
