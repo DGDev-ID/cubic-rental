@@ -321,39 +321,34 @@ class RentalController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Riwayat Transaksi');
 
-        // ---------- Header branding ----------
-        $sheet->setCellValue('A1', config('app.name', 'Rental PS'));
-        $sheet->mergeCells('A1:G1');
-        $sheet->getStyle('A1')->applyFromArray([
-            'font'      => ['bold' => true, 'size' => 14, 'color' => ['rgb' => 'FFFFFF']],
-            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '3B1F6B']],
-            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
-        ]);
-
-        $sheet->setCellValue('A2', 'Riwayat Transaksi – ' . $periodLabel);
-        $sheet->mergeCells('A2:G2');
-        $sheet->getStyle('A2')->applyFromArray([
-            'font'      => ['bold' => true, 'size' => 11, 'color' => ['rgb' => 'FFFFFF']],
-            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '5B2D8E']],
-            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
-        ]);
-
-        $sheet->setCellValue('A3', 'Diekspor pada: ' . now()->format('d/m/Y H:i:s'));
-        $sheet->mergeCells('A3:G3');
-        $sheet->getStyle('A3')->applyFromArray([
-            'font'      => ['italic' => true, 'size' => 9, 'color' => ['rgb' => '888888']],
-            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT],
-        ]);
-
         // ---------- Column headers ----------
         $headers = ['Tanggal', 'Kode Transaksi', 'Customer', 'Console', 'Operator', 'Total FnB (Rp)', 'Total Rental (Rp)', 'Total Semua (Rp)'];
         $colCount = count($headers);
         $lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colCount);
 
-        // Re-merge branding rows to match actual column count
+        // ---------- Header branding (merged exactly to table width) ----------
+        $sheet->setCellValue('A1', config('app.name', 'Rental PS'));
         $sheet->mergeCells("A1:{$lastCol}1");
+        $sheet->getStyle('A1')->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 14, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '0C2D5A']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+        ]);
+
+        $sheet->setCellValue('A2', 'Riwayat Transaksi – ' . $periodLabel);
         $sheet->mergeCells("A2:{$lastCol}2");
+        $sheet->getStyle('A2')->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 11, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '1155A0']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+        ]);
+
+        $sheet->setCellValue('A3', 'Diekspor pada: ' . now()->format('d/m/Y H:i:s'));
         $sheet->mergeCells("A3:{$lastCol}3");
+        $sheet->getStyle('A3')->applyFromArray([
+            'font'      => ['italic' => true, 'size' => 9, 'color' => ['rgb' => '888888']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT],
+        ]);
 
         $headerRow = 5;
         foreach ($headers as $i => $h) {
@@ -362,9 +357,9 @@ class RentalController extends Controller
         }
         $sheet->getStyle("A{$headerRow}:{$lastCol}{$headerRow}")->applyFromArray([
             'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '7C3AED']],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '0284C7']],
             'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
-            'borders'   => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => '5B21B6']]],
+            'borders'   => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => '38BDF8']]],
         ]);
 
         $row = $headerRow + 1;
@@ -372,11 +367,11 @@ class RentalController extends Controller
         $totalCustomers = 0;
 
         $numFmt = '#,##0';
-        $altFill = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '1A1233']];
-        $normFill = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '120D22']];
+        $altFill = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '0D1F35']];
+        $normFill = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '081729']];
         $fontColor = ['color' => ['rgb' => 'E2E8F0']];
-        $amountColor = ['color' => ['rgb' => 'A78BFA']];
-        $borderStyle = ['borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => '2D2050']]]];
+        $amountColor = ['color' => ['rgb' => '7DD3FC']];
+        $borderStyle = ['borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => '0D3B5E']]]];
 
         foreach ($rentals as $idx => $r) {
             $totalFnb    += $r->fnb_amount;
@@ -431,8 +426,8 @@ class RentalController extends Controller
         $sheet->mergeCells("A{$row}:B{$row}");
         $sheet->getStyle("A{$row}:H{$row}")->applyFromArray([
             'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '4C1D95']],
-            'borders'   => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM, 'color' => ['rgb' => '7C3AED']]],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '0C3B6E']],
+            'borders'   => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM, 'color' => ['rgb' => '38BDF8']]],
         ]);
         $sheet->getStyle("F{$row}:H{$row}")->getNumberFormat()->setFormatCode($numFmt);
 
@@ -451,7 +446,7 @@ class RentalController extends Controller
         $sheet->freezePane("A{$headerRow}");
 
         // Tab color
-        $sheet->getTabColor()->setRGB('7C3AED');
+        $sheet->getTabColor()->setRGB('0284C7');
 
         $fileName = 'riwayat_transaksi_' . date('Y-m-d_H-i-s') . '.xlsx';
 
