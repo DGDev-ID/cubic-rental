@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
-import { Download, TrendingUp, Users, BarChart2, ChevronLeft, ChevronRight, Filter } from 'lucide-vue-next'
+import { Download, TrendingUp, Users, BarChart2, ChevronLeft, ChevronRight, Filter, X, Calendar } from 'lucide-vue-next'
 
 interface RentalRow {
   id: number; transaction_code: string; customer_name: string; rental_type: string;
@@ -15,15 +15,18 @@ interface RentalRow {
 const props = defineProps<{
   rentals: { data: RentalRow[]; links: any[]; total: number }
   fnb_orders?: { data: any[]; links: any[]; total: number }
-  filters: { search: string; date: string; month?: string; employee_id: string; console_id: string; payment_method: string }
+  filters: { search: string; date: string; month?: string; year?: string; employee_id: string; console_id: string; payment_method: string }
   employees: { id: number; name: string }[]
   consoles: { id: number; name: string }[]
   today_revenue: number
   today_customers: number
   summary_revenue: number
   summary_customers: number
+  yearly_stats: { year: number; revenue: number; customers: number }[]
   monthly_stats: { month: number; revenue: number; customers: number }[]
+  daily_stats: { day: number; revenue: number; customers: number }[]
   stats_year: number
+  stats_month: number
 }>()
 
 const activeTab = ref<'rental' | 'fnb'>('rental')
@@ -32,19 +35,33 @@ const filters = ref({
   search: props.filters?.search ?? '',
   date: props.filters?.date ?? '',
   month: props.filters?.month ?? '',
+  year: props.filters?.year ?? '',
   employee_id: props.filters?.employee_id ?? '',
   console_id: props.filters?.console_id ?? '',
   payment_method: props.filters?.payment_method ?? ''
 })
 
 const localStatsYear = ref(props.stats_year)
-const showMonthly = ref(true)
+const localStatsMonth = ref(props.stats_month)
+const summaryMode = ref<'yearly' | 'monthly' | 'daily'>('monthly')
+const showSummary = ref(true)
+
+// Export modal
+const showExportModal = ref(false)
+const exportType = ref<'all' | 'year' | 'month' | 'day'>('all')
+const exportYear = ref(new Date().getFullYear())
+const exportMonth = ref('')
+const exportDate = ref('')
 
 let debounce: ReturnType<typeof setTimeout>
 watch(filters, () => {
   clearTimeout(debounce)
   debounce = setTimeout(() => {
-    router.get(route('rentals.history'), { ...filters.value, stats_year: localStatsYear.value } as any, { preserveState: true, replace: true })
+    router.get(route('rentals.history'), {
+      ...filters.value,
+      stats_year: localStatsYear.value,
+      stats_month: localStatsMonth.value,
+    } as any, { preserveState: true, replace: true })
   }, 350)
 }, { deep: true })
 
@@ -52,7 +69,7 @@ const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
 
 const hasActiveFilter = computed(() =>
-  !!(filters.value.search || filters.value.date || filters.value.month ||
+  !!(filters.value.search || filters.value.date || filters.value.month || filters.value.year ||
      filters.value.employee_id || filters.value.console_id || filters.value.payment_method)
 )
 
@@ -66,29 +83,102 @@ const filterLabel = computed(() => {
     const [y, m] = filters.value.month.split('-')
     parts.push(`${monthNames[parseInt(m) - 1]} ${y}`)
   }
+  if (filters.value.year) parts.push(`Tahun ${filters.value.year}`)
   if (filters.value.search) parts.push(`"${filters.value.search}"`)
   return parts.length ? parts.join(', ') : null
 })
 
+// --- Year view ---
+function selectYear(y: number) {
+  if (filters.value.year === String(y)) {
+    filters.value.year = ''
+  } else {
+    filters.value.date = ''
+    filters.value.month = ''
+    filters.value.year = String(y)
+  }
+}
+function isSelectedYear(y: number) {
+  return filters.value.year === String(y)
+}
+
+// --- Month view ---
 function selectMonth(m: number) {
   const monthStr = `${localStatsYear.value}-${String(m).padStart(2, '0')}`
   if (filters.value.month === monthStr) {
     filters.value.month = ''
   } else {
     filters.value.date = ''
+    filters.value.year = ''
     filters.value.month = monthStr
   }
 }
-
 function isSelectedMonth(m: number) {
   return filters.value.month === `${localStatsYear.value}-${String(m).padStart(2, '0')}`
+}
+
+// --- Day view ---
+function selectDay(d: number) {
+  const dateStr = `${localStatsYear.value}-${String(localStatsMonth.value).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  if (filters.value.date === dateStr) {
+    filters.value.date = ''
+  } else {
+    filters.value.month = ''
+    filters.value.year = ''
+    filters.value.date = dateStr
+  }
+}
+function isSelectedDay(d: number) {
+  const dateStr = `${localStatsYear.value}-${String(localStatsMonth.value).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  return filters.value.date === dateStr
 }
 
 function changeYear(delta: number) {
   localStatsYear.value += delta
   filters.value.month = ''
   clearTimeout(debounce)
-  router.get(route('rentals.history'), { ...filters.value, stats_year: localStatsYear.value } as any, { preserveState: true, replace: true })
+  router.get(route('rentals.history'), {
+    ...filters.value,
+    stats_year: localStatsYear.value,
+    stats_month: localStatsMonth.value,
+  } as any, { preserveState: true, replace: true })
+}
+
+function changeMonth(delta: number) {
+  let m = localStatsMonth.value + delta
+  let y = localStatsYear.value
+  if (m < 1) { m = 12; y-- }
+  if (m > 12) { m = 1; y++ }
+  localStatsMonth.value = m
+  localStatsYear.value = y
+  clearTimeout(debounce)
+  router.get(route('rentals.history'), {
+    ...filters.value,
+    stats_year: y,
+    stats_month: m,
+  } as any, { preserveState: true, replace: true })
+}
+
+// --- Export modal ---
+function openExportModal() {
+  if (filters.value.date) { exportType.value = 'day'; exportDate.value = filters.value.date }
+  else if (filters.value.month) { exportType.value = 'month'; exportMonth.value = filters.value.month }
+  else if (filters.value.year) { exportType.value = 'year'; exportYear.value = parseInt(filters.value.year) }
+  else exportType.value = 'all'
+  showExportModal.value = true
+}
+
+function doExport() {
+  const q = new URLSearchParams()
+  if (filters.value.search) q.append('search', filters.value.search)
+  if (filters.value.employee_id) q.append('employee_id', filters.value.employee_id)
+  if (filters.value.console_id) q.append('console_id', filters.value.console_id)
+  if (filters.value.payment_method) q.append('payment_method', filters.value.payment_method)
+  if (exportType.value === 'day' && exportDate.value) q.append('date', exportDate.value)
+  else if (exportType.value === 'month' && exportMonth.value) q.append('month', exportMonth.value)
+  else if (exportType.value === 'year') q.append('year', String(exportYear.value))
+  window.location.href = route('rentals.export') + '?' + q.toString()
+  showExportModal.value = false
 }
 
 function formatCurrency(v: number) {
@@ -106,17 +196,14 @@ function formatDt(d: string | null) {
   return new Date(d).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-function exportExcel() {
-  const q = new URLSearchParams()
-  if (filters.value.search) q.append('search', filters.value.search)
-  if (filters.value.date) q.append('date', filters.value.date)
-  if (filters.value.month) q.append('month', filters.value.month)
-  if (filters.value.employee_id) q.append('employee_id', filters.value.employee_id)
-  if (filters.value.console_id) q.append('console_id', filters.value.console_id)
-  if (filters.value.payment_method) q.append('payment_method', filters.value.payment_method)
+const availableYears = computed(() => {
+  const years = props.yearly_stats.map(y => y.year)
+  if (!years.length) return [new Date().getFullYear()]
+  return years
+})
 
-  window.location.href = route('rentals.export') + '?' + q.toString()
-}
+const summaryModes = ['yearly', 'monthly', 'daily'] as const
+const exportTypes = ['all', 'year', 'month', 'day'] as const
 
 const statusColor: Record<string, string> = {
   running: '#22d3ee', finished: '#22c55e', paid: '#a78bfa', cancelled: '#ef4444', half_paid: '#fbbf24',
@@ -130,7 +217,7 @@ const detail = ref<RentalRow | null>(null)
   <AppLayout>
     <template #header-title><h1 class="font-semibold text-white text-lg">Riwayat Transaksi</h1></template>
     <template #header-actions>
-      <button @click="exportExcel"
+      <button @click="openExportModal"
         class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-colors hover:opacity-90"
         style="background:linear-gradient(135deg,#10b981,#059669);">
         <Download :size="16" /> Export Excel
@@ -155,33 +242,65 @@ const detail = ref<RentalRow | null>(null)
       </div>
     </div>
 
-    <!-- Monthly Stats -->
+    <!-- Summary Section -->
     <div class="rounded-xl p-4 mb-4" style="background:#1a1a26; border:1px solid #2a2a3a;">
+      <!-- Header row -->
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
           <BarChart2 :size="15" style="color:#a78bfa;" />
-          <span class="text-sm font-semibold text-white">Ringkasan Bulanan</span>
+          <span class="text-sm font-semibold text-white">Ringkasan Periode</span>
         </div>
-        <div class="flex items-center gap-1">
-          <button @click="changeYear(-1)"
-            class="p-1 rounded-lg transition-colors hover:bg-white/10"
-            style="color:#94a3b8;">
-            <ChevronLeft :size="16" />
-          </button>
-          <span class="text-sm font-medium text-white px-1">{{ localStatsYear }}</span>
-          <button @click="changeYear(1)"
-            class="p-1 rounded-lg transition-colors hover:bg-white/10"
-            style="color:#94a3b8;">
-            <ChevronRight :size="16" />
-          </button>
-          <button @click="showMonthly = !showMonthly"
-            class="ml-1 px-2 py-1 rounded-lg text-xs transition-colors hover:bg-white/10"
+        <div class="flex items-center gap-2">
+          <!-- Mode tabs -->
+          <div class="flex gap-1 p-0.5 rounded-lg" style="background:#12121a; border:1px solid #2a2a3a;">
+            <button
+              v-for="mode in summaryModes" :key="mode"
+              @click="summaryMode = mode"
+              class="px-2.5 py-1 rounded-md text-xs font-medium transition-all"
+              :style="summaryMode === mode
+                ? 'background:rgba(139,92,246,.3); color:#c4b5fd; border:1px solid rgba(139,92,246,.4);'
+                : 'color:#64748b; border:1px solid transparent;'">
+              {{ mode === 'yearly' ? 'Tahunan' : mode === 'monthly' ? 'Bulanan' : 'Harian' }}
+            </button>
+          </div>
+          <!-- Nav for monthly/daily -->
+          <template v-if="summaryMode === 'monthly'">
+            <button @click="changeYear(-1)" class="p-1 rounded-lg hover:bg-white/10" style="color:#94a3b8;"><ChevronLeft :size="15" /></button>
+            <span class="text-sm font-medium text-white px-0.5">{{ localStatsYear }}</span>
+            <button @click="changeYear(1)" class="p-1 rounded-lg hover:bg-white/10" style="color:#94a3b8;"><ChevronRight :size="15" /></button>
+          </template>
+          <template v-if="summaryMode === 'daily'">
+            <button @click="changeMonth(-1)" class="p-1 rounded-lg hover:bg-white/10" style="color:#94a3b8;"><ChevronLeft :size="15" /></button>
+            <span class="text-xs font-medium text-white px-0.5">{{ monthNames[localStatsMonth - 1] }} {{ localStatsYear }}</span>
+            <button @click="changeMonth(1)" class="p-1 rounded-lg hover:bg-white/10" style="color:#94a3b8;"><ChevronRight :size="15" /></button>
+          </template>
+          <button @click="showSummary = !showSummary"
+            class="ml-1 px-2 py-1 rounded-lg text-xs hover:bg-white/10"
             style="color:#64748b;">
-            {{ showMonthly ? '▲' : '▼' }}
+            {{ showSummary ? '▲' : '▼' }}
           </button>
         </div>
       </div>
-      <div v-if="showMonthly" class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+
+      <!-- Yearly cards -->
+      <div v-if="showSummary && summaryMode === 'yearly'" class="flex flex-wrap gap-2">
+        <button
+          v-for="stat in yearly_stats" :key="stat.year"
+          @click="selectYear(stat.year)"
+          class="px-4 py-3 rounded-xl text-left transition-all min-w-[90px]"
+          :style="isSelectedYear(stat.year)
+            ? 'background:rgba(139,92,246,.25); border:1px solid rgba(139,92,246,.5);'
+            : 'background:#12121a; border:1px solid #2a2a3a;'">
+          <p class="text-xs font-semibold mb-1"
+            :style="isSelectedYear(stat.year) ? 'color:#c4b5fd;' : 'color:#64748b;'">{{ stat.year }}</p>
+          <p class="text-xs font-bold text-white leading-tight">{{ formatCurrencyShort(stat.revenue) }}</p>
+          <p class="text-xs mt-0.5" style="color:#94a3b8;">{{ stat.customers }} cust</p>
+        </button>
+        <div v-if="!yearly_stats.length" class="text-xs py-2" style="color:#64748b;">Belum ada data</div>
+      </div>
+
+      <!-- Monthly cards -->
+      <div v-if="showSummary && summaryMode === 'monthly'" class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
         <button
           v-for="stat in monthly_stats" :key="stat.month"
           @click="selectMonth(stat.month)"
@@ -190,24 +309,35 @@ const detail = ref<RentalRow | null>(null)
             ? 'background:rgba(139,92,246,.25); border:1px solid rgba(139,92,246,.5);'
             : 'background:#12121a; border:1px solid #2a2a3a;'">
           <p class="text-xs font-semibold mb-1"
-            :style="isSelectedMonth(stat.month) ? 'color:#c4b5fd;' : 'color:#64748b;'">
-            {{ monthNames[stat.month - 1] }}
-          </p>
+            :style="isSelectedMonth(stat.month) ? 'color:#c4b5fd;' : 'color:#64748b;'">{{ monthNames[stat.month - 1] }}</p>
           <p class="text-xs font-bold text-white leading-tight">{{ formatCurrencyShort(stat.revenue) }}</p>
           <p class="text-xs mt-0.5" style="color:#94a3b8;">{{ stat.customers }} cust</p>
+        </button>
+      </div>
+
+      <!-- Daily cards -->
+      <div v-if="showSummary && summaryMode === 'daily'" class="grid grid-cols-4 sm:grid-cols-7 lg:grid-cols-10 gap-1.5">
+        <button
+          v-for="stat in daily_stats" :key="stat.day"
+          @click="selectDay(stat.day)"
+          class="p-2 rounded-xl text-left transition-all"
+          :style="isSelectedDay(stat.day)
+            ? 'background:rgba(139,92,246,.25); border:1px solid rgba(139,92,246,.5);'
+            : stat.revenue > 0 ? 'background:#12121a; border:1px solid #2a2a3a;' : 'background:#0d0d14; border:1px solid #1a1a26; opacity:.5;'">
+          <p class="text-xs font-bold mb-0.5"
+            :style="isSelectedDay(stat.day) ? 'color:#c4b5fd;' : 'color:#64748b;'">{{ stat.day }}</p>
+          <p class="text-[10px] font-semibold text-white leading-tight truncate">{{ stat.revenue > 0 ? formatCurrencyShort(stat.revenue) : '-' }}</p>
+          <p class="text-[10px] mt-0.5" style="color:#94a3b8;">{{ stat.customers > 0 ? stat.customers + 'c' : '' }}</p>
         </button>
       </div>
     </div>
 
     <!-- Filters -->
-    <div class="rounded-xl p-4 mb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"
+    <div class="rounded-xl p-4 mb-4 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3"
       style="background:#1a1a26; border:1px solid #2a2a3a;">
       <input v-model="filters.search" placeholder="Cari customer/kode..."
         class="px-3 py-2 rounded-xl text-sm text-white outline-none col-span-2 sm:col-span-1"
         style="background:#12121a; border:1px solid #2a2a3a;" />
-      <input v-model="filters.date" type="date" @change="filters.month = ''"
-        class="px-3 py-2 rounded-xl text-sm text-white outline-none"
-        style="background:#12121a; border:1px solid #2a2a3a; color-scheme: dark;" />
       <select v-model="filters.employee_id"
         class="px-3 py-2 rounded-xl text-sm text-white outline-none"
         style="background:#12121a; border:1px solid #2a2a3a;">
@@ -399,4 +529,78 @@ const detail = ref<RentalRow | null>(null)
       </div>
     </div>
   </AppLayout>
+
+  <!-- Export Modal -->
+  <Teleport to="body">
+    <div v-if="showExportModal"
+      class="fixed inset-0 z-50 flex items-center justify-center"
+      style="background:rgba(0,0,0,.65); backdrop-filter:blur(4px);"
+      @click.self="showExportModal = false">
+      <div class="rounded-2xl p-6 w-full max-w-sm mx-4" style="background:#1a1a26; border:1px solid #2a2a3a;">
+        <!-- Modal header -->
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex items-center gap-2">
+            <Download :size="16" style="color:#10b981;" />
+            <span class="font-semibold text-white">Export Excel</span>
+          </div>
+          <button @click="showExportModal = false" class="p-1 rounded-lg hover:bg-white/10" style="color:#64748b;">
+            <X :size="16" />
+          </button>
+        </div>
+
+        <!-- Period type selector -->
+        <p class="text-xs font-medium mb-2" style="color:#94a3b8;">Pilih Periode</p>
+        <div class="grid grid-cols-2 gap-2 mb-4">
+          <button v-for="t in exportTypes" :key="t"
+            @click="exportType = t"
+            class="py-2 px-3 rounded-xl text-xs font-medium transition-all"
+            :style="exportType === t
+              ? 'background:rgba(16,185,129,.2); border:1px solid rgba(16,185,129,.5); color:#10b981;'
+              : 'background:#12121a; border:1px solid #2a2a3a; color:#64748b;'">
+            {{ t === 'all' ? 'Semua Data' : t === 'year' ? 'Per Tahun' : t === 'month' ? 'Per Bulan' : 'Per Hari' }}
+          </button>
+        </div>
+
+        <!-- Per Tahun -->
+        <div v-if="exportType === 'year'" class="mb-4">
+          <p class="text-xs mb-1" style="color:#94a3b8;">Tahun</p>
+          <select v-model="exportYear"
+            class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+            style="background:#12121a; border:1px solid #2a2a3a;">
+            <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
+          </select>
+        </div>
+
+        <!-- Per Bulan -->
+        <div v-if="exportType === 'month'" class="mb-4">
+          <p class="text-xs mb-1" style="color:#94a3b8;">Bulan</p>
+          <input v-model="exportMonth" type="month"
+            class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+            style="background:#12121a; border:1px solid #2a2a3a; color-scheme:dark;" />
+        </div>
+
+        <!-- Per Hari -->
+        <div v-if="exportType === 'day'" class="mb-4">
+          <p class="text-xs mb-1" style="color:#94a3b8;">Tanggal</p>
+          <input v-model="exportDate" type="date"
+            class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+            style="background:#12121a; border:1px solid #2a2a3a; color-scheme:dark;" />
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-2 mt-2">
+          <button @click="showExportModal = false"
+            class="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
+            style="background:#12121a; border:1px solid #2a2a3a; color:#94a3b8;">
+            Batal
+          </button>
+          <button @click="doExport"
+            class="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium text-white transition-all hover:opacity-90"
+            style="background:linear-gradient(135deg,#10b981,#059669);">
+            <Download :size="14" /> Export
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>

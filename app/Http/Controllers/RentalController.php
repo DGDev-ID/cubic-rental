@@ -154,6 +154,9 @@ class RentalController extends Controller
             [$y, $m] = explode('-', $request->month);
             $query->whereYear('started_at', (int) $y)->whereMonth('started_at', (int) $m);
             $fnbQuery->whereYear('paid_at', (int) $y)->whereMonth('paid_at', (int) $m);
+        } elseif ($request->year) {
+            $query->whereYear('started_at', (int) $request->year);
+            $fnbQuery->whereYear('paid_at', (int) $request->year);
         }
         if ($request->employee_id) {
             $query->where('employee_id', $request->employee_id);
@@ -182,6 +185,25 @@ class RentalController extends Controller
         $todayCustomers = Rental::whereDate('started_at', $today)->count()
             + \App\Models\FnbOrder::where('status', 'paid')->whereDate('paid_at', $today)->count();
 
+        // Yearly stats (all available years)
+        $yRentals = Rental::whereIn('status', ['finished', 'paid', 'half_paid'])
+            ->selectRaw('EXTRACT(YEAR FROM started_at) as year, SUM(total_amount) as revenue, COUNT(*) as customers')
+            ->groupByRaw('EXTRACT(YEAR FROM started_at)')
+            ->orderByRaw('EXTRACT(YEAR FROM started_at)')
+            ->get()->keyBy(fn($r) => (int) $r->year);
+        $yFnb = \App\Models\FnbOrder::where('status', 'paid')
+            ->selectRaw('EXTRACT(YEAR FROM paid_at) as year, SUM(total_amount) as revenue, COUNT(*) as customers')
+            ->groupByRaw('EXTRACT(YEAR FROM paid_at)')
+            ->orderByRaw('EXTRACT(YEAR FROM paid_at)')
+            ->get()->keyBy(fn($r) => (int) $r->year);
+        $allYears = $yRentals->keys()->merge($yFnb->keys())->unique()->sort()->values();
+        if ($allYears->isEmpty()) $allYears = collect([now()->year]);
+        $yearlyStats = $allYears->map(fn($yr) => [
+            'year'      => (int) $yr,
+            'revenue'   => (float) (($yRentals->get($yr)?->revenue ?? 0) + ($yFnb->get($yr)?->revenue ?? 0)),
+            'customers' => (int) (($yRentals->get($yr)?->customers ?? 0) + ($yFnb->get($yr)?->customers ?? 0)),
+        ])->values();
+
         // Monthly stats for the selected year
         $statsYear = (int) ($request->stats_year ?? now()->year);
         $mRentals = Rental::whereIn('status', ['finished', 'paid', 'half_paid'])
@@ -200,27 +222,51 @@ class RentalController extends Controller
             'customers' => (int) (($mRentals->get($m)?->customers ?? 0) + ($mFnb->get($m)?->customers ?? 0)),
         ])->values();
 
+        // Daily stats for the selected year+month
+        $statsMonth = (int) ($request->stats_month ?? now()->month);
+        $daysInMonth = \Carbon\Carbon::create($statsYear, $statsMonth)->daysInMonth;
+        $dRentals = Rental::whereIn('status', ['finished', 'paid', 'half_paid'])
+            ->whereYear('started_at', $statsYear)
+            ->whereMonth('started_at', $statsMonth)
+            ->selectRaw('EXTRACT(DAY FROM started_at) as day, SUM(total_amount) as revenue, COUNT(*) as customers')
+            ->groupByRaw('EXTRACT(DAY FROM started_at)')
+            ->get()->keyBy(fn($r) => (int) $r->day);
+        $dFnb = \App\Models\FnbOrder::where('status', 'paid')
+            ->whereYear('paid_at', $statsYear)
+            ->whereMonth('paid_at', $statsMonth)
+            ->selectRaw('EXTRACT(DAY FROM paid_at) as day, SUM(total_amount) as revenue, COUNT(*) as customers')
+            ->groupByRaw('EXTRACT(DAY FROM paid_at)')
+            ->get()->keyBy(fn($r) => (int) $r->day);
+        $dailyStats = collect(range(1, $daysInMonth))->map(fn($d) => [
+            'day'       => $d,
+            'revenue'   => (float) (($dRentals->get($d)?->revenue ?? 0) + ($dFnb->get($d)?->revenue ?? 0)),
+            'customers' => (int) (($dRentals->get($d)?->customers ?? 0) + ($dFnb->get($d)?->customers ?? 0)),
+        ])->values();
+
         return Inertia::render('Rentals/History', [
             'rentals'           => $query->orderByDesc('started_at')->paginate(20)->withQueryString(),
             'fnb_orders'        => $fnbQuery->orderByDesc('paid_at')->paginate(20, ['*'], 'fnb_page')->withQueryString(),
             'employees'         => Employee::orderBy('name')->get(),
             'consoles'          => Console::orderBy('name')->get(),
-            'filters'           => $request->only(['search', 'date', 'month', 'employee_id', 'console_id', 'payment_method']),
+            'filters'           => $request->only(['search', 'date', 'month', 'year', 'employee_id', 'console_id', 'payment_method']),
             'today_revenue'     => (float) $todayRevenue,
             'today_customers'   => (int) $todayCustomers,
             'summary_revenue'   => (float) $summaryRevenue,
             'summary_customers' => (int) $summaryCustomers,
+            'yearly_stats'      => $yearlyStats,
             'monthly_stats'     => $monthlyStats,
+            'daily_stats'       => $dailyStats,
             'stats_year'        => $statsYear,
+            'stats_month'       => $statsMonth,
         ]);
     }
 
     public function exportExcel(Request $request)
     {
-        $query = Rental::with(['console'])
+        $query = Rental::with(['console', 'employee'])
             ->whereIn('status', ['finished', 'paid', 'half_paid']);
 
-        $fnbQuery = \App\Models\FnbOrder::with(['console'])
+        $fnbQuery = \App\Models\FnbOrder::with(['console', 'employee'])
             ->where('status', 'paid');
 
         if ($request->search) {
@@ -240,6 +286,9 @@ class RentalController extends Controller
             [$y, $m] = explode('-', $request->month);
             $query->whereYear('started_at', (int) $y)->whereMonth('started_at', (int) $m);
             $fnbQuery->whereYear('paid_at', (int) $y)->whereMonth('paid_at', (int) $m);
+        } elseif ($request->year) {
+            $query->whereYear('started_at', (int) $request->year);
+            $fnbQuery->whereYear('paid_at', (int) $request->year);
         }
         if ($request->employee_id) {
             $query->where('employee_id', $request->employee_id);
@@ -257,60 +306,167 @@ class RentalController extends Controller
         $rentals   = $query->orderByDesc('started_at')->get();
         $fnbOrders = $fnbQuery->orderByDesc('paid_at')->get();
 
-        $fileName = 'riwayat_transaksi_' . date('Y-m-d_H-i-s') . '.csv';
+        // Build period label for title
+        $periodLabel = 'Semua Waktu';
+        if ($request->date) {
+            $periodLabel = \Carbon\Carbon::parse($request->date)->translatedFormat('d F Y');
+        } elseif ($request->month) {
+            [$y, $m] = explode('-', $request->month);
+            $periodLabel = \Carbon\Carbon::create($y, $m)->translatedFormat('F Y');
+        } elseif ($request->year) {
+            $periodLabel = 'Tahun ' . $request->year;
+        }
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Riwayat Transaksi');
+
+        // ---------- Header branding ----------
+        $sheet->setCellValue('A1', config('app.name', 'Rental PS'));
+        $sheet->mergeCells('A1:G1');
+        $sheet->getStyle('A1')->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 14, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '3B1F6B']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+        ]);
+
+        $sheet->setCellValue('A2', 'Riwayat Transaksi – ' . $periodLabel);
+        $sheet->mergeCells('A2:G2');
+        $sheet->getStyle('A2')->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 11, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '5B2D8E']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+        ]);
+
+        $sheet->setCellValue('A3', 'Diekspor pada: ' . now()->format('d/m/Y H:i:s'));
+        $sheet->mergeCells('A3:G3');
+        $sheet->getStyle('A3')->applyFromArray([
+            'font'      => ['italic' => true, 'size' => 9, 'color' => ['rgb' => '888888']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT],
+        ]);
+
+        // ---------- Column headers ----------
+        $headers = ['Tanggal', 'Kode Transaksi', 'Customer', 'Console', 'Operator', 'Total FnB (Rp)', 'Total Rental (Rp)', 'Total Semua (Rp)'];
+        $colCount = count($headers);
+        $lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colCount);
+
+        // Re-merge branding rows to match actual column count
+        $sheet->mergeCells("A1:{$lastCol}1");
+        $sheet->mergeCells("A2:{$lastCol}2");
+        $sheet->mergeCells("A3:{$lastCol}3");
+
+        $headerRow = 5;
+        foreach ($headers as $i => $h) {
+            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
+            $sheet->setCellValue("{$col}{$headerRow}", $h);
+        }
+        $sheet->getStyle("A{$headerRow}:{$lastCol}{$headerRow}")->applyFromArray([
+            'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '7C3AED']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+            'borders'   => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => '5B21B6']]],
+        ]);
+
+        $row = $headerRow + 1;
+        $totalFnb = $totalRental = $totalSemua = 0;
+        $totalCustomers = 0;
+
+        $numFmt = '#,##0';
+        $altFill = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '1A1233']];
+        $normFill = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '120D22']];
+        $fontColor = ['color' => ['rgb' => 'E2E8F0']];
+        $amountColor = ['color' => ['rgb' => 'A78BFA']];
+        $borderStyle = ['borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => '2D2050']]]];
+
+        foreach ($rentals as $idx => $r) {
+            $totalFnb    += $r->fnb_amount;
+            $totalRental += $r->rental_amount;
+            $totalSemua  += $r->total_amount;
+            $totalCustomers++;
+
+            $fill = $idx % 2 === 0 ? $normFill : $altFill;
+            $sheet->setCellValue("A{$row}", $r->started_at?->format('d/m/Y') ?? '-');
+            $sheet->setCellValue("B{$row}", $r->transaction_code ?? '-');
+            $sheet->setCellValue("C{$row}", $r->customer_name ?? '-');
+            $sheet->setCellValue("D{$row}", $r->console->name ?? '-');
+            $sheet->setCellValue("E{$row}", $r->employee->name ?? '-');
+            $sheet->setCellValue("F{$row}", (float) $r->fnb_amount);
+            $sheet->setCellValue("G{$row}", (float) $r->rental_amount);
+            $sheet->setCellValue("H{$row}", (float) $r->total_amount);
+
+            $sheet->getStyle("A{$row}:H{$row}")->applyFromArray(array_merge(['font' => $fontColor, 'fill' => $fill], $borderStyle));
+            $sheet->getStyle("F{$row}:H{$row}")->applyFromArray(['font' => $amountColor]);
+            $sheet->getStyle("F{$row}:H{$row}")->getNumberFormat()->setFormatCode($numFmt);
+            $row++;
+        }
+
+        foreach ($fnbOrders as $idx => $f) {
+            $totalFnb   += $f->total_amount;
+            $totalSemua += $f->total_amount;
+            $totalCustomers++;
+
+            $fill = ($idx + count($rentals)) % 2 === 0 ? $normFill : $altFill;
+            $sheet->setCellValue("A{$row}", $f->paid_at?->format('d/m/Y') ?? '-');
+            $sheet->setCellValue("B{$row}", $f->code ?? '-');
+            $sheet->setCellValue("C{$row}", $f->customer_name ?? '-');
+            $sheet->setCellValue("D{$row}", $f->console->name ?? '-');
+            $sheet->setCellValue("E{$row}", $f->employee->name ?? '-');
+            $sheet->setCellValue("F{$row}", (float) $f->total_amount);
+            $sheet->setCellValue("G{$row}", 0);
+            $sheet->setCellValue("H{$row}", (float) $f->total_amount);
+
+            $sheet->getStyle("A{$row}:H{$row}")->applyFromArray(array_merge(['font' => $fontColor, 'fill' => $fill], $borderStyle));
+            $sheet->getStyle("F{$row}:H{$row}")->applyFromArray(['font' => $amountColor]);
+            $sheet->getStyle("F{$row}:H{$row}")->getNumberFormat()->setFormatCode($numFmt);
+            $row++;
+        }
+
+        // ---------- Summary row ----------
+        $row++;
+        $sheet->setCellValue("A{$row}", 'TOTAL');
+        $sheet->setCellValue("C{$row}", $totalCustomers . ' customer');
+        $sheet->setCellValue("F{$row}", (float) $totalFnb);
+        $sheet->setCellValue("G{$row}", (float) $totalRental);
+        $sheet->setCellValue("H{$row}", (float) $totalSemua);
+        $sheet->mergeCells("A{$row}:B{$row}");
+        $sheet->getStyle("A{$row}:H{$row}")->applyFromArray([
+            'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '4C1D95']],
+            'borders'   => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM, 'color' => ['rgb' => '7C3AED']]],
+        ]);
+        $sheet->getStyle("F{$row}:H{$row}")->getNumberFormat()->setFormatCode($numFmt);
+
+        // ---------- Column widths ----------
+        $widths = [14, 20, 22, 18, 18, 18, 18, 18];
+        foreach ($widths as $ci => $w) {
+            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($ci + 1);
+            $sheet->getColumnDimension($col)->setWidth($w);
+        }
+
+        // Fix row heights
+        $sheet->getRowDimension(1)->setRowHeight(22);
+        $sheet->getRowDimension(2)->setRowHeight(18);
+
+        // Freeze header
+        $sheet->freezePane("A{$headerRow}");
+
+        // Tab color
+        $sheet->getTabColor()->setRGB('7C3AED');
+
+        $fileName = 'riwayat_transaksi_' . date('Y-m-d_H-i-s') . '.xlsx';
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
 
         $headers = [
-            "Content-type"        => "text/csv; charset=UTF-8",
-            "Content-Disposition" => "attachment; filename=\"$fileName\"",
-            "Pragma"              => "no-cache",
-            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
-            "Expires"             => "0",
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment; filename=\"{$fileName}\"",
+            'Cache-Control'       => 'max-age=0',
         ];
 
-        $fmt = fn($v) => number_format((float) $v, 0, ',', '.');
-        $row = fn($handle, array $cols) => fputcsv($handle, $cols, ';');
-
-        $callback = function () use ($rentals, $fnbOrders, $fmt, $row) {
-            $file = fopen('php://output', 'w');
-            fputs($file, "\xEF\xBB\xBF");
-
-            $row($file, ['Tanggal', 'Console', 'Total FNB (Rp)', 'Total Rental (Rp)', 'Total Semua (Rp)']);
-
-            $totalFnb = $totalRental = $totalSemua = 0;
-
-            foreach ($rentals as $r) {
-                $totalFnb    += $r->fnb_amount;
-                $totalRental += $r->rental_amount;
-                $totalSemua  += $r->total_amount;
-                $row($file, [
-                    $r->started_at?->format('d/m/Y') ?? '-',
-                    $r->console->name ?? '-',
-                    $fmt($r->fnb_amount),
-                    $fmt($r->rental_amount),
-                    $fmt($r->total_amount),
-                ]);
-            }
-
-            foreach ($fnbOrders as $f) {
-                $totalFnb   += $f->total_amount;
-                $totalSemua += $f->total_amount;
-                $row($file, [
-                    $f->paid_at?->format('d/m/Y') ?? '-',
-                    $f->console->name ?? '-',
-                    $fmt($f->total_amount),
-                    $fmt(0),
-                    $fmt($f->total_amount),
-                ]);
-            }
-
-            $row($file, []);
-            $row($file, ['TOTAL', '', $fmt($totalFnb), $fmt($totalRental), $fmt($totalSemua)]);
-            $row($file, []);
-            $row($file, ['Diekspor pada', now()->format('d/m/Y H:i:s')]);
-
-            fclose($file);
-        };
-
-        return new \Symfony\Component\HttpFoundation\StreamedResponse($callback, 200, $headers);
+        return new \Symfony\Component\HttpFoundation\StreamedResponse(
+            function () use ($writer) { $writer->save('php://output'); },
+            200,
+            $headers
+        );
     }
 }
