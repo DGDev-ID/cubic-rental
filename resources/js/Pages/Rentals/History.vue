@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
-import { Download } from 'lucide-vue-next'
+import { Download, TrendingUp, Users, BarChart2, ChevronLeft, ChevronRight, Filter } from 'lucide-vue-next'
 
 interface RentalRow {
   id: number; transaction_code: string; customer_name: string; rental_type: string;
@@ -15,9 +15,15 @@ interface RentalRow {
 const props = defineProps<{
   rentals: { data: RentalRow[]; links: any[]; total: number }
   fnb_orders?: { data: any[]; links: any[]; total: number }
-  filters: { search: string; date: string; employee_id: string; console_id: string; payment_method: string }
+  filters: { search: string; date: string; month?: string; employee_id: string; console_id: string; payment_method: string }
   employees: { id: number; name: string }[]
   consoles: { id: number; name: string }[]
+  today_revenue: number
+  today_customers: number
+  summary_revenue: number
+  summary_customers: number
+  monthly_stats: { month: number; revenue: number; customers: number }[]
+  stats_year: number
 }>()
 
 const activeTab = ref<'rental' | 'fnb'>('rental')
@@ -25,21 +31,76 @@ const activeTab = ref<'rental' | 'fnb'>('rental')
 const filters = ref({
   search: props.filters?.search ?? '',
   date: props.filters?.date ?? '',
+  month: props.filters?.month ?? '',
   employee_id: props.filters?.employee_id ?? '',
   console_id: props.filters?.console_id ?? '',
   payment_method: props.filters?.payment_method ?? ''
 })
+
+const localStatsYear = ref(props.stats_year)
+const showMonthly = ref(true)
+
 let debounce: ReturnType<typeof setTimeout>
-watch(filters, (v) => {
+watch(filters, () => {
   clearTimeout(debounce)
   debounce = setTimeout(() => {
-    router.get(route('rentals.history'), v as any, { preserveState: true, replace: true })
+    router.get(route('rentals.history'), { ...filters.value, stats_year: localStatsYear.value } as any, { preserveState: true, replace: true })
   }, 350)
 }, { deep: true })
+
+const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+
+const hasActiveFilter = computed(() =>
+  !!(filters.value.search || filters.value.date || filters.value.month ||
+     filters.value.employee_id || filters.value.console_id || filters.value.payment_method)
+)
+
+const filterLabel = computed(() => {
+  const parts: string[] = []
+  if (filters.value.date) {
+    const d = new Date(filters.value.date + 'T00:00:00')
+    parts.push(d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }))
+  }
+  if (filters.value.month) {
+    const [y, m] = filters.value.month.split('-')
+    parts.push(`${monthNames[parseInt(m) - 1]} ${y}`)
+  }
+  if (filters.value.search) parts.push(`"${filters.value.search}"`)
+  return parts.length ? parts.join(', ') : null
+})
+
+function selectMonth(m: number) {
+  const monthStr = `${localStatsYear.value}-${String(m).padStart(2, '0')}`
+  if (filters.value.month === monthStr) {
+    filters.value.month = ''
+  } else {
+    filters.value.date = ''
+    filters.value.month = monthStr
+  }
+}
+
+function isSelectedMonth(m: number) {
+  return filters.value.month === `${localStatsYear.value}-${String(m).padStart(2, '0')}`
+}
+
+function changeYear(delta: number) {
+  localStatsYear.value += delta
+  filters.value.month = ''
+  clearTimeout(debounce)
+  router.get(route('rentals.history'), { ...filters.value, stats_year: localStatsYear.value } as any, { preserveState: true, replace: true })
+}
 
 function formatCurrency(v: number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v)
 }
+
+function formatCurrencyShort(v: number) {
+  if (v >= 1_000_000) return 'Rp\u202f' + (v / 1_000_000).toFixed(1).replace('.', ',') + 'jt'
+  if (v >= 1_000) return 'Rp\u202f' + Math.round(v / 1_000) + 'rb'
+  return formatCurrency(v)
+}
+
 function formatDt(d: string | null) {
   if (!d) return '-'
   return new Date(d).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -49,6 +110,7 @@ function exportExcel() {
   const q = new URLSearchParams()
   if (filters.value.search) q.append('search', filters.value.search)
   if (filters.value.date) q.append('date', filters.value.date)
+  if (filters.value.month) q.append('month', filters.value.month)
   if (filters.value.employee_id) q.append('employee_id', filters.value.employee_id)
   if (filters.value.console_id) q.append('console_id', filters.value.console_id)
   if (filters.value.payment_method) q.append('payment_method', filters.value.payment_method)
@@ -75,13 +137,75 @@ const detail = ref<RentalRow | null>(null)
       </button>
     </template>
 
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 gap-4 mb-5">
+      <div class="rounded-xl p-4" style="background:#1a1a26; border:1px solid #2a2a3a;">
+        <div class="flex items-center gap-2 mb-2">
+          <TrendingUp :size="15" style="color:#10b981;" />
+          <span class="text-xs font-medium" style="color:#94a3b8;">Omset Hari Ini</span>
+        </div>
+        <p class="text-xl font-bold truncate" style="color:#10b981;">{{ formatCurrency(today_revenue) }}</p>
+      </div>
+      <div class="rounded-xl p-4" style="background:#1a1a26; border:1px solid #2a2a3a;">
+        <div class="flex items-center gap-2 mb-2">
+          <Users :size="15" style="color:#60a5fa;" />
+          <span class="text-xs font-medium" style="color:#94a3b8;">Customer Hari Ini</span>
+        </div>
+        <p class="text-xl font-bold" style="color:#60a5fa;">{{ today_customers }} <span class="text-sm font-normal" style="color:#64748b;">customer</span></p>
+      </div>
+    </div>
+
+    <!-- Monthly Stats -->
+    <div class="rounded-xl p-4 mb-4" style="background:#1a1a26; border:1px solid #2a2a3a;">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <BarChart2 :size="15" style="color:#a78bfa;" />
+          <span class="text-sm font-semibold text-white">Ringkasan Bulanan</span>
+        </div>
+        <div class="flex items-center gap-1">
+          <button @click="changeYear(-1)"
+            class="p-1 rounded-lg transition-colors hover:bg-white/10"
+            style="color:#94a3b8;">
+            <ChevronLeft :size="16" />
+          </button>
+          <span class="text-sm font-medium text-white px-1">{{ localStatsYear }}</span>
+          <button @click="changeYear(1)"
+            class="p-1 rounded-lg transition-colors hover:bg-white/10"
+            style="color:#94a3b8;">
+            <ChevronRight :size="16" />
+          </button>
+          <button @click="showMonthly = !showMonthly"
+            class="ml-1 px-2 py-1 rounded-lg text-xs transition-colors hover:bg-white/10"
+            style="color:#64748b;">
+            {{ showMonthly ? '▲' : '▼' }}
+          </button>
+        </div>
+      </div>
+      <div v-if="showMonthly" class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+        <button
+          v-for="stat in monthly_stats" :key="stat.month"
+          @click="selectMonth(stat.month)"
+          class="p-3 rounded-xl text-left transition-all"
+          :style="isSelectedMonth(stat.month)
+            ? 'background:rgba(139,92,246,.25); border:1px solid rgba(139,92,246,.5);'
+            : 'background:#12121a; border:1px solid #2a2a3a;'">
+          <p class="text-xs font-semibold mb-1"
+            :style="isSelectedMonth(stat.month) ? 'color:#c4b5fd;' : 'color:#64748b;'">
+            {{ monthNames[stat.month - 1] }}
+          </p>
+          <p class="text-xs font-bold text-white leading-tight">{{ formatCurrencyShort(stat.revenue) }}</p>
+          <p class="text-xs mt-0.5" style="color:#94a3b8;">{{ stat.customers }} cust</p>
+        </button>
+      </div>
+    </div>
+
     <!-- Filters -->
     <div class="rounded-xl p-4 mb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"
       style="background:#1a1a26; border:1px solid #2a2a3a;">
       <input v-model="filters.search" placeholder="Cari customer/kode..."
         class="px-3 py-2 rounded-xl text-sm text-white outline-none col-span-2 sm:col-span-1"
         style="background:#12121a; border:1px solid #2a2a3a;" />
-      <input v-model="filters.date" type="date"
+      <input v-model="filters.date" type="date" @change="filters.month = ''"
         class="px-3 py-2 rounded-xl text-sm text-white outline-none"
         style="background:#12121a; border:1px solid #2a2a3a; color-scheme: dark;" />
       <select v-model="filters.employee_id"
@@ -105,6 +229,27 @@ const detail = ref<RentalRow | null>(null)
         <option value="transfer">Transfer</option>
         <option value="debit">Debit</option>
       </select>
+    </div>
+
+    <!-- Filtered Summary -->
+    <div v-if="hasActiveFilter" class="rounded-xl px-4 py-3 mb-4 flex items-center justify-between gap-4"
+      style="background:rgba(139,92,246,.08); border:1px solid rgba(139,92,246,.3);">
+      <div class="flex items-center gap-2 min-w-0">
+        <Filter :size="13" style="color:#a78bfa;" />
+        <span class="text-xs truncate" style="color:#94a3b8;">
+          {{ filterLabel ? filterLabel : 'Filter aktif' }}
+        </span>
+      </div>
+      <div class="flex items-center gap-5 shrink-0">
+        <div class="text-right">
+          <p class="text-xs" style="color:#64748b;">Omset</p>
+          <p class="text-sm font-bold" style="color:#a78bfa;">{{ formatCurrency(summary_revenue) }}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs" style="color:#64748b;">Transaksi</p>
+          <p class="text-sm font-bold text-white">{{ summary_customers }}</p>
+        </div>
+      </div>
     </div>
 
     <div class="flex gap-1 mb-4 p-1 rounded-xl w-fit" style="background:#1a1a26; border:1px solid #2a2a3a;">

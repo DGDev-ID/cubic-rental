@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UML Diagrams — Cubic Gaming Lounge</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    :root {
+      --bg-deep:      #0a0e1a;
+      --bg-card:      #111827;
+      --bg-card-hover:#161f35;
+      --border:       #1e2d4a;
+      --border-glow:  #2563eb44;
+      --accent:       #3b82f6;
+      --accent-2:     #8b5cf6;
+      --accent-3:     #06b6d4;
+      --success:      #10b981;
+      --text-primary: #f1f5f9;
+      --text-muted:   #64748b;
+      --text-label:   #94a3b8;
+      --badge-bg:     #1e3a5f;
+      --badge-text:   #60a5fa;
+      --radius:       14px;
+      --shadow:       0 4px 32px rgba(0,0,0,0.5);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ─── HEADER ─── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10, 14, 26, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-logo {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .header-title { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+    .header-sub   { font-size: 12px; color: var(--text-muted); }
+
+    .btn-export-all {
+      display: flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff; border: none; padding: 9px 18px;
+      border-radius: 8px; font-family: inherit;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all .2s;
+    }
+    .btn-export-all:hover { opacity: .9; transform: translateY(-1px); box-shadow: 0 4px 20px #3b82f655; }
+    .btn-export-all:active { transform: translateY(0); }
+
+    /* ─── SIDEBAR NAV ─── */
+    .layout { display: flex; gap: 0; }
+
+    nav {
+      position: sticky;
+      top: 69px;
+      height: calc(100vh - 69px);
+      width: 240px;
+      flex-shrink: 0;
+      overflow-y: auto;
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
+      padding: 20px 12px;
+    }
+    nav::-webkit-scrollbar { width: 4px; }
+    nav::-webkit-scrollbar-track { background: transparent; }
+    nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .nav-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 1.2px;
+      color: var(--text-muted); text-transform: uppercase;
+      padding: 8px 8px 6px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border-radius: 8px;
+      color: var(--text-label); font-size: 13px;
+      cursor: pointer; text-decoration: none;
+      transition: all .15s;
+      border: 1px solid transparent;
+    }
+    .nav-item:hover  { background: #1e2d4a44; color: var(--text-primary); }
+    .nav-item.active { background: #1e3a5f; color: var(--accent); border-color: var(--border-glow); }
+    .nav-icon { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
+    .nav-num {
+      margin-left: auto; font-size: 10px; font-weight: 600;
+      background: var(--badge-bg); color: var(--badge-text);
+      padding: 2px 6px; border-radius: 99px;
+    }
+
+    /* ─── MAIN CONTENT ─── */
+    main { flex: 1; min-width: 0; padding: 32px; }
+
+    /* ─── HERO ─── */
+    .hero {
+      background: linear-gradient(135deg, #111827 0%, #1e1b4b 50%, #0c2140 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 36px 40px;
+      margin-bottom: 32px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 70% 50%, #3b82f611 0%, transparent 60%);
+    }
+    .hero h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; position: relative; }
+    .hero h1 span { background: linear-gradient(135deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero p { color: var(--text-label); font-size: 14px; position: relative; max-width: 560px; }
+    .hero-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; position: relative; }
+    .hero-badge {
+      display: flex; align-items: center; gap: 5px;
+      background: #1e2d4a; border: 1px solid var(--border);
+      color: var(--text-label); font-size: 12px; font-weight: 500;
+      padding: 4px 10px; border-radius: 99px;
+    }
+
+    /* ─── DIAGRAM CARD ─── */
+    .diagram-section { margin-bottom: 40px; scroll-margin-top: 90px; }
+
+    .diagram-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      transition: border-color .2s;
+    }
+    .diagram-card:hover { border-color: var(--border-glow); }
+
+    .card-header {
+      display: flex; align-items: center; gap: 14px;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(90deg, #111827 0%, #0f172a 100%);
+    }
+    .card-type-badge {
+      font-size: 10px; font-weight: 700; letter-spacing: .8px;
+      text-transform: uppercase; padding: 3px 10px;
+      border-radius: 99px; white-space: nowrap;
+    }
+    .badge-usecase  { background: #1a3350; color: #60a5fa; border: 1px solid #2563eb44; }
+    .badge-erd      { background: #1a3a2e; color: #34d399; border: 1px solid #10b98144; }
+    .badge-class    { background: #2d1f4e; color: #a78bfa; border: 1px solid #7c3aed44; }
+    .badge-sequence { background: #1a2e3a; color: #22d3ee; border: 1px solid #0891b244; }
+    .badge-activity { background: #3a2010; color: #fb923c; border: 1px solid #ea580c44; }
+    .badge-state    { background: #3a1a20; color: #f87171; border: 1px solid #dc262644; }
+    .badge-component{ background: #1a3530; color: #4ade80; border: 1px solid #16a34a44; }
+
+    .card-title { font-size: 15px; font-weight: 600; flex: 1; }
+    .card-num   { font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+
+    .card-actions {
+      display: flex; gap: 8px; margin-left: auto;
+    }
+
+    .btn-action {
+      display: flex; align-items: center; gap: 6px;
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      padding: 6px 14px; border-radius: 7px;
+      border: 1px solid; cursor: pointer;
+      transition: all .18s;
+    }
+    .btn-png {
+      background: #1e3a5f; border-color: #2563eb55;
+      color: #60a5fa;
+    }
+    .btn-png:hover { background: #2563eb22; border-color: var(--accent); color: #93c5fd; transform: translateY(-1px); }
+    .btn-png:active { transform: translateY(0); }
+    .btn-png.loading { opacity: .6; cursor: not-allowed; }
+
+    .btn-svg {
+      background: #1a3a2e; border-color: #10b98155;
+      color: #34d399;
+    }
+    .btn-svg:hover { background: #10b98122; border-color: var(--success); color: #6ee7b7; transform: translateY(-1px); }
+
+    /* ─── DIAGRAM AREA ─── */
+    .diagram-body {
+      padding: 32px;
+      overflow-x: auto;
+      background: #0d1117;
+      min-height: 120px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .diagram-body .mermaid {
+      max-width: 100%;
+    }
+    .diagram-body .mermaid svg {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+    }
+
+    /* ─── LOADING SKELETON ─── */
+    .skeleton {
+      width: 100%; height: 200px;
+      background: linear-gradient(90deg, #1a1f2e 25%, #222840 50%, #1a1f2e 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ─── TOAST ─── */
+    #toast {
+      position: fixed; bottom: 28px; right: 28px; z-index: 999;
+      display: flex; align-items: center; gap: 10px;
+      background: #1e3a2e; border: 1px solid #10b98155;
+      color: #34d399; padding: 12px 20px;
+      border-radius: 10px; font-size: 13px; font-weight: 500;
+      box-shadow: 0 8px 32px #00000066;
+      transform: translateY(80px); opacity: 0;
+      transition: all .3s cubic-bezier(.34,1.56,.64,1);
+      pointer-events: none;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.error { background: #3a1a1a; border-color: #dc262655; color: #f87171; }
+
+    /* ─── PROGRESS BAR ─── */
+    #progress-bar {
+      position: fixed; top: 0; left: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      width: 0%; z-index: 9999; transition: width .3s;
+      border-radius: 0 3px 3px 0;
+    }
+
+    /* ─── SCROLLBAR ─── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-deep); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+    ::-webkit-scrollbar-thumb:hover { background: #2d4a6e; }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 900px) {
+      nav { display: none; }
+      main { padding: 20px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+<div id="toast">✓ Diagram berhasil diexport!</div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-brand">
+    <div class="header-logo">🎮</div>
+    <div>
+      <div class="header-title">UML Viewer — Cubic Gaming Lounge</div>
+      <div class="header-sub">12 Diagram · Mermaid.js · Export PNG/SVG</div>
+    </div>
+  </div>
+  <button class="btn-export-all" id="btn-export-all">
+    ⬇️ Export Semua PNG
+  </button>
+</header>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <nav id="sidebar">
+    <div class="nav-label">Navigasi Diagram</div>
+    <a href="#uc"    class="nav-item active"><span class="nav-icon">👤</span>Use Case<span class="nav-num">1</span></a>
+    <a href="#erd"   class="nav-item"><span class="nav-icon">🗄️</span>ERD<span class="nav-num">2</span></a>
+    <a href="#class" class="nav-item"><span class="nav-icon">📦</span>Class Diagram<span class="nav-num">3</span></a>
+    <a href="#seq1"  class="nav-item"><span class="nav-icon">🔄</span>Seq: Mulai Rental<span class="nav-num">4</span></a>
+    <a href="#seq2"  class="nav-item"><span class="nav-icon">🔄</span>Seq: Finish & Pay<span class="nav-num">5</span></a>
+    <a href="#seq3"  class="nav-item"><span class="nav-icon">🔄</span>Seq: FnB Order<span class="nav-num">6</span></a>
+    <a href="#seq4"  class="nav-item"><span class="nav-icon">🔄</span>Seq: Konversi Res.<span class="nav-num">7</span></a>
+    <a href="#act1"  class="nav-item"><span class="nav-icon">▶️</span>Activity: Rental<span class="nav-num">8</span></a>
+    <a href="#act2"  class="nav-item"><span class="nav-icon">▶️</span>Activity: FnB<span class="nav-num">9</span></a>
+    <a href="#sm1"   class="nav-item"><span class="nav-icon">⚙️</span>State: Rental<span class="nav-num">10</span></a>
+    <a href="#sm2"   class="nav-item"><span class="nav-icon">⚙️</span>State: Reservation<span class="nav-num">11</span></a>
+    <a href="#comp"  class="nav-item"><span class="nav-icon">🧩</span>Component<span class="nav-num">12</span></a>
+  </nav>
+
+  <!-- MAIN -->
+  <main>
+    <!-- HERO -->
+    <div class="hero">
+      <h1>🎮 <span>Cubic Gaming Lounge</span> — UML Diagrams</h1>
+      <p>Diagram lengkap dihasilkan dari analisis migration, Eloquent models, controllers, dan services. Klik tombol <strong>Export PNG</strong> pada setiap diagram.</p>
+      <div class="hero-badges">
+        <span class="hero-badge">📁 15 Tabel Database</span>
+        <span class="hero-badge">📦 15 Eloquent Model</span>
+        <span class="hero-badge">⚙️ 12 Controller</span>
+        <span class="hero-badge">🔧 2 Service</span>
+        <span class="hero-badge">📊 12 Diagram UML</span>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────── -->
+    <!-- 1. USE CASE -->
+    <!-- ───────────────────────────── -->
+    <div class="diagram-section" id="uc">
+      <div class="diagram-card">
+        <div class="card-header">
+          <span class="card-type-badge badge-usecase">Use Case</span>
+          <span class="card-title">Use Case Diagram — Semua Aktor & Fitur Sistem</span>
+          <span class="card-num">#1</span>
+          <div class="card-actions">
+            <button class="btn-action btn-svg" onclick="exportSVG('uc')">⬇ SVG</button>
+            <button class="btn-action btn-png" id="btn-uc" onclick="exportPNG('uc')">⬇ PNG</button>
+          </div>
+        </div>
+        <div class="diagram-body">
+          <div class="mermaid" id="diagram-uc">
+%%{init: {'theme': 'dark', 'themeVariables': {'background': '#0d1117', 'primaryColor': '#1e3a5f', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#3b82f6', 'lineColor': '#475569', 'secondaryColor': '#1a2d4a', 'tertiaryColor': '#0f172a'}}}%%
+graph TD
+    Admin(["👤 Admin"])
+    Operator(["👤 Operator"])
+    System(["⚙️ System"])
+
+    subgraph UC_AUTH ["🔐 Authentication"]
+        direction LR
+        UC1["Login"] & UC2["Logout"] & UC3["Edit Profile"]
+    end
+
+    subgraph UC_MASTER ["📦 Master Data — Admin Only"]
+        direction LR
+        UC4["Kelola Karyawan"] & UC5["Kelola Console"] & UC6["Kelola Game"]
+        UC7["Kelola FnB Item"] & UC8["Kelola FnB Addon"] & UC9["Kelola Package"]
+    end
+
+    subgraph UC_RENTAL ["🎮 Rental Management"]
+        direction LR
+        UC10["Mulai Rental"] & UC11["Detail Rental"] & UC12["Tambah Waktu"]
+        UC13["Tambah FnB"] & UC14["Hapus FnB"] & UC15["Selesaikan"]
+        UC16["Bayar"] & UC17["Cetak Struk"] & UC18["Riwayat"] & UC19["Ekspor CSV"]
+    end
+
+    subgraph UC_RESERVATION ["📅 Reservation"]
+        direction LR
+        UC20["Buat Reservasi"] & UC21["Update"] & UC22["Batalkan"] & UC23["Konversi ke Rental"]
+    end
+
+    subgraph UC_FNB ["🍔 FnB Order Standalone"]
+        direction LR
+        UC24["Buat Order"] & UC25["Detail Order"] & UC26["Bayar"] & UC27["Batalkan"]
+    end
+
+    subgraph UC_CASH ["💰 Keuangan"]
+        direction LR
+        UC28["Catat Pengeluaran"] & UC29["Riwayat Kas"] & UC30["Edit"] & UC31["Hapus"]
+    end
+
+    subgraph UC_DASH ["📊 Dashboard & Monitor"]
+        direction LR
+        UC32["Dashboard"] & UC33["Monitor Rental"] & UC34["Room Monitor"]
+    end
+
+    Admin --> UC_AUTH
+    Admin --> UC_MASTER
+    Admin --> UC18
+    Admin --> UC19
+    Admin --> UC29
+    Admin --> UC30
+    Admin --> UC31
+    Admin --> UC32
+
+    Operator --> UC_AUTH
+    Operator --> UC_RENTAL
+    Operator --> UC_RESERVATION
+    Operator --> UC_FNB
+    Operator --> UC28
+    Operator --> UC32
+    Operator --> UC33
+    Operator --> UC34
+
+    System --> UC33
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────── -->
+    <!-- 2. ERD -->
+    <!-- ───────────────────────────── -->
+    <div class="diagram-section" id="erd">
+      <div class="diagram-card">
+        <div class="card-header">
+          <span class="card-type-badge badge-erd">ERD</span>
+          <span class="card-title">Entity Relationship Diagram — Semua Tabel & Relasi</span>
+          <span class="card-num">#2</span>
+          <div class="card-actions">
+            <button class="btn-action btn-svg" onclick="exportSVG('erd')">⬇ SVG</button>
+            <button class="btn-action btn-png" id="btn-erd" onclick="exportPNG('erd')">⬇ PNG</button>
+          </div>
+        </div>
+        <div class="diagram-body">
+          <div class="mermaid" id="diagram-erd">
+%%{init: {'theme': 'dark', 'themeVariables': {'background': '#0d1117', 'primaryColor': '#1a3a2e', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#10b981', 'lineColor': '#34d399', 'tertiaryColor': '#0f172a'}}}%%
+erDiagram
+    USERS { bigint id PK; string nama; string username UK; string password; enum role }
+    EMPLOYEES { bigint id PK; string name; string phone; string position; enum status; timestamp deleted_at }
+    CONSOLES { bigint id PK; string name UK; enum type; decimal price_per_hour; enum status; timestamp deleted_at }
+    GAMES { bigint id PK; string name; string genre; string platform; boolean is_available; timestamp deleted_at }
+    CONSOLE_GAMES { bigint console_id FK; bigint game_id FK }
+    PACKAGES { bigint id PK; string name; int duration_hours; decimal price; boolean is_available; timestamp deleted_at }
+    RENTALS { bigint id PK; string transaction_code UK; string customer_name; bigint console_id FK; bigint employee_id FK; bigint package_id FK; enum rental_type; enum status; timestamp started_at; timestamp ended_at; timestamp scheduled_end_at; decimal rental_amount; decimal fnb_amount; decimal extra_amount; decimal total_amount; decimal paid_amount; text notes; timestamp deleted_at }
+    RENTAL_EXTENSIONS { bigint id PK; bigint rental_id FK; int added_minutes; decimal additional_price; text notes }
+    RENTAL_PAYMENTS { bigint id PK; bigint rental_id FK; enum method; decimal amount; text notes }
+    FNB_ITEMS { bigint id PK; string name; enum category; decimal price; int stock; boolean is_available; timestamp deleted_at }
+    FNB_ADDONS { bigint id PK; bigint fnb_item_id FK; string name; decimal price; boolean is_available; timestamp deleted_at }
+    RENTAL_FNB_ITEMS { bigint id PK; bigint rental_id FK; bigint fnb_item_id FK; int qty; decimal unit_price; decimal subtotal; json addons; decimal addons_price }
+    FNB_ORDERS { bigint id PK; string code UK; string customer_name; bigint employee_id FK; bigint console_id FK; decimal total_amount; enum status; enum payment_method; timestamp paid_at }
+    FNB_ORDER_ITEMS { bigint id PK; bigint fnb_order_id FK; bigint fnb_item_id FK; int qty; decimal unit_price; decimal subtotal; json addons; decimal addons_price }
+    RESERVATIONS { bigint id PK; bigint console_id FK; bigint employee_id FK; string customer_name; string customer_phone; timestamp reserved_at; float duration_hours; enum status; bigint rental_id FK }
+    CASH_OUTBOUNDS { bigint id PK; decimal nominal; text notes; bigint employee_id FK; date date; timestamp deleted_at }
+
+    CONSOLES ||--o{ RENTALS : "has many"
+    CONSOLES }|--|{ GAMES : "M:N via console_games"
+    CONSOLES ||--o{ RESERVATIONS : "has many"
+    CONSOLES ||--o{ FNB_ORDERS : "has many"
+    EMPLOYEES ||--o{ RENTALS : "operates"
+    EMPLOYEES ||--o{ RESERVATIONS : "handles"
+    EMPLOYEES ||--o{ FNB_ORDERS : "creates"
+    EMPLOYEES ||--o{ CASH_OUTBOUNDS : "records"
+    PACKAGES ||--o{ RENTALS : "used in"
+    RENTALS ||--o{ RENTAL_EXTENSIONS : "extends"
+    RENTALS ||--o{ RENTAL_FNB_ITEMS : "has FnB"
+    RENTALS ||--o{ RENTAL_PAYMENTS : "payments"
+    RENTALS ||--o| RESERVATIONS : "converted from"
+    FNB_ITEMS ||--o{ RENTAL_FNB_ITEMS : "ordered in rental"
+    FNB_ITEMS ||--o{ FNB_ADDONS : "has addons"
+    FNB_ITEMS ||--o{ FNB_ORDER_ITEMS : "ordered standalone"
+    FNB_ORDERS ||--o{ FNB_ORDER_ITEMS : "contains"
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────── -->
+    <!-- 3. CLASS DIAGRAM -->
+    <!-- ───────────────────────────── -->
+    <div class="diagram-section" id="class">
+      <div class="diagram-card">
+        <div class="card-header">
+          <span class="card-type-badge badge-class">Class Diagram</span>
+          <span class="card-title">Class Diagram — Eloquent Models, Services & Controllers</span>
+          <span class="card-num">#3</span>
+          <div class="card-actions">
+            <button class="btn-action btn-svg" onclick="exportSVG('class')">⬇ SVG</button>
+            <button class="btn-action btn-png" id="btn-class" onclick="exportPNG('class')">⬇ PNG</button>
+          </div>
+        </div>
+        <div class="diagram-body">
+          <div class="mermaid" id="diagram-class">
+%%{init: {'theme': 'dark', 'themeVariables': {'background': '#0d1117', 'primaryColor': '#2d1f4e', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#8b5cf6', 'lineColor': '#a78bfa'}}}%%
+classDiagram
+    direction TB
+
+    class Employee {
+        +bigint id
+        +string name
+        +string phone
+        +string position
+        +string status
+        +rentals() HasMany
+        +reservations() HasMany
+        +fnbOrders() HasMany
+        +cashOutbounds() HasMany
+    }
+    class Console {
+        +bigint id
+        +string name
+        +string type
+        +decimal price_per_hour
+        +string status
+        +games() BelongsToMany
+        +rentals() HasMany
+        +activeRental() HasOne
+        +reservations() HasMany
+    }
+    class Game {
+        +bigint id
+        +string name
+        +string genre
+        +string platform
+        +bool is_available
+        +consoles() BelongsToMany
+    }
+    class Package {
+        +bigint id
+        +string name
+        +int duration_hours
+        +decimal price
+        +bool is_available
+        +rentals() HasMany
+    }
+    class Rental {
+        +bigint id
+        +string transaction_code
+        +string customer_name
+        +string rental_type
+        +string status
+        +datetime started_at
+        +datetime ended_at
+        +datetime scheduled_end_at
+        +decimal rental_amount
+        +decimal fnb_amount
+        +decimal extra_amount
+        +decimal total_amount
+        +decimal paid_amount
+        +console() BelongsTo
+        +employee() BelongsTo
+        +package() BelongsTo
+        +extensions() HasMany
+        +fnbItems() HasMany
+        +payments() HasMany
+        +getDurationMinutesAttribute() int
+        +getRemainingMinutesAttribute() int
+        +getIsOvertimeAttribute() bool
+        +recalculateTotal() void
+    }
+    class RentalExtension {
+        +bigint id
+        +bigint rental_id
+        +int added_minutes
+        +decimal additional_price
+        +rental() BelongsTo
+    }
+    class RentalPayment {
+        +bigint id
+        +bigint rental_id
+        +string method
+        +decimal amount
+        +rental() BelongsTo
+    }
+    class FnbItem {
+        +bigint id
+        +string name
+        +string category
+        +decimal price
+        +int stock
+        +addons() HasMany
+    }
+    class FnbAddon {
+        +bigint id
+        +string name
+        +decimal price
+        +fnbItem() BelongsTo
+    }
+    class RentalFnbItem {
+        +bigint id
+        +int qty
+        +decimal subtotal
+        +json addons
+        +rental() BelongsTo
+        +fnbItem() BelongsTo
+    }
+    class FnbOrder {
+        +bigint id
+        +string code
+        +string customer_name
+        +decimal total_amount
+        +string status
+        +string payment_method
+        +employee() BelongsTo
+        +console() BelongsTo
+        +items() HasMany
+    }
+    class FnbOrderItem {
+        +bigint id
+        +int qty
+        +decimal subtotal
+        +json addons
+        +fnbOrder() BelongsTo
+        +fnbItem() BelongsTo
+    }
+    class Reservation {
+        +bigint id
+        +string customer_name
+        +datetime reserved_at
+        +float duration_hours
+        +string status
+        +console() BelongsTo
+        +employee() BelongsTo
+        +rental() BelongsTo
+    }
+    class CashOutbound {
+        +bigint id
+        +decimal nominal
+        +text notes
+        +date date
+        +employee() BelongsTo
+    }
+    class RentalService {
+        +create(array data) Rental
+        +addTime(Rental rental, array data) RentalExtension
+        +addFnb(Rental rental, array items) void
+        +finish(Rental rental) Rental
+        +pay(Rental rental, array payments) void
+        +getActiveRentals() Collection
+        +getFinishedUnpaidRentals() Collection
+    }
+
+    Console "1" --> "*" Rental
+    Console "1" --> "*" Reservation
+    Console "1" --> "*" FnbOrder
+    Console "*" --> "*" Game
+    Employee "1" --> "*" Rental
+    Employee "1" --> "*" Reservation
+    Employee "1" --> "*" FnbOrder
+    Employee "1" --> "*" CashOutbound
+    Package "1" --> "*" Rental
+    Rental "1" --> "*" RentalExtension
+    Rental "1" --> "*" RentalFnbItem
+    Rental "1" --> "*" RentalPayment
+    Rental "0..1" --> "0..1" Reservation
+    FnbItem "1" --> "*" FnbAddon
+    FnbItem "1" --> "*" RentalFnbItem
+    FnbItem "1" --> "*" FnbOrderItem
+    FnbOrder "1" --> "*" FnbOrderItem
+    RentalService ..> Rental : creates
+    RentalService ..> RentalExtension : creates
+    RentalService ..> RentalPayment : creates
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────── -->
+    <!-- 4. SEQUENCE: MULAI RENTAL -->
+    <!-- ───────────────────────────── -->
+    <div class="diagram-section" id="seq1">
+      <div class="diagram-card">
+        <div class="card-header">
+          <span class="card-type-badge badge-sequence">Sequence</span>
+          <span class="card-title">Sequence Diagram — Mulai Rental Baru</span>
+          <span class="card-num">#4</span>
+          <div class="card-actions">
+            <button class="btn-action btn-svg" onclick="exportSVG('seq1')">⬇ SVG</button>
+            <button class="btn-action btn-png" id="btn-seq1" onclick="exportPNG('seq1')">⬇ PNG</button>
+          </div>
+        </div>
+        <div class="diagram-body">
+          <div class="mermaid" id="diagram-seq1">
+%%{init: {'theme': 'dark', 'themeVariables': {'background': '#0d1117', 'primaryColor': '#1a2e3a', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#06b6d4', 'lineColor': '#22d3ee', 'actorBkg': '#1a2e3a', 'actorBorder': '#06b6d4', 'activationBkgColor': '#0c2535'}}}%%
+sequenceDiagram
+    actor Operator
+    participant Browser
+    participant RentalController
+    participant RentalService
+    participant Console
+    participant Rental
+    participant DB
+
+    Operator->>Browser: Buka halaman Rentals
+    Browser->>RentalController: GET /rentals
+    RentalController->>DB: Query consoles (available)
+    RentalController->>DB: Query employees (active)
+    RentalController->>DB: Query upcoming reservations
+    DB-->>RentalController: Data
+    RentalController-->>Browser: Inertia: Rentals/Index
+
+    Operator->>Browser: Isi form & klik Mulai Rental
+    Browser->>RentalController: POST /rentals
+    RentalController->>RentalService: create(validatedData)
+    RentalService->>Console: findOrFail(console_id)
+    Console-->>RentalService: Console object
+    RentalService->>Rental: create(transaction_code, status:running, ...)
+    Rental-->>RentalService: Rental object
+    RentalService->>Console: update(status: occupied)
+    RentalService-->>RentalController: Rental object
+    RentalController-->>Browser: redirect → /rentals/{id}
+    Browser-->>Operator: Halaman Detail Rental (live)
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────── -->
+    <!-- 5. SEQUENCE: FINISH & PAY -->
+    <!-- ───────────────────────────── -->
+    <div class="diagram-section" id="seq2">
+      <div class="diagram-card">
+        <div class="card-header">
+          <span class="card-type-badge badge-sequence">Sequence</span>
+          <span class="card-title">Sequence Diagram — Selesaikan & Bayar Rental</span>
+          <span class="card-num">#5</span>
+          <div class="card-actions">
+            <button class="btn-action btn-svg" onclick="exportSVG('seq2')">⬇ SVG</button>
+            <button class="btn-action btn-png" id="btn-seq2" onclick="exportPNG('seq2')">⬇ PNG</button>
+          </div>
+        </div>
+        <div class="diagram-body">
+          <div class="mermaid" id="diagram-seq2">
+%%{init: {'theme': 'dark', 'themeVariables': {'background': '#0d1117', 'primaryColor': '#1a2e3a', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#06b6d4', 'lineColor': '#22d3ee', 'actorBkg': '#1a2e3a', 'actorBorder': '#06b6d4'}}}%%
+sequenceDiagram
+    actor Operator
+    participant Browser
+    participant RentalController
+    participant RentalService
+    participant Rental
+    participant RentalPayment
+    participant Console
+
+    Operator->>Browser: Klik Selesaikan Rental
+    Browser->>RentalController: POST /rentals/{id}/finish
+    RentalController->>RentalService: finish(rental)
+    RentalService->>Rental: calculate rental_amount
+    Note over RentalService: Open Time: ceil ke 10 menit, min 60 menit<br/>Duration: billing sesuai scheduled_end_at
+    RentalService->>Rental: update(status:finished, ended_at, rental_amount, total_amount)
+    RentalService->>Console: update(status: available)
+    RentalController-->>Browser: redirect → /rentals/{id}/payment
+
+    Operator->>Browser: Pilih metode & jumlah bayar
+    Browser->>RentalController: POST /rentals/{id}/pay
+    RentalController->>RentalService: pay(rental, payments)
+    loop Setiap payment
+        RentalService->>RentalPayment: create(rental_id, method, amount)
+    end
+    RentalService->>Rental: update paid_amount, status
+    Note over RentalService: paid / half_paid
+    RentalController-->>Browser: redirect → /rentals/{id}/receipt
+    Browser-->>Operator: Struk Pembayaran ✅
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────── -->
+    <!-- 6. SEQUENCE: FNB ORDER -->
+    <!-- ───────────────────────────── -->
+    <div class="diagram-section" id="seq3">
+      <div class="diagram-card">
+        <div class="card-header">
+          <span class="card-type-badge badge-sequence">Sequence</span>
+          <span class="card-title">Sequence Diagram — FnB Order Standalone</span>
+          <span class="card-num">#6</span>
+          <div class="card-actions">
+            <button class="btn-action btn-svg" onclick="exportSVG('seq3')">⬇ SVG</button>
+            <button class="btn-action btn-png" id="btn-seq3" onclick="exportPNG('seq3')">⬇ PNG</button>
+          </div>
+        </div>
+        <div class="diagram-body">
+          <div class="mermaid" id="diagram-seq3">
+%%{init: {'theme': 'dark', 'themeVariables': {'background': '#0d1117', 'primaryColor': '#1a2e3a', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#06b6d4', 'lineColor': '#22d3ee', 'actorBkg': '#1a2e3a', 'actorBorder': '#06b6d4'}}}%%
+sequenceDiagram
+    actor Operator
+    participant Browser
+    participant FnbOrderController
+    participant FnbOrder
+    participant FnbOrderItem
+    participant DB
+
+    Operator->>Browser: Buka halaman FnB Orders
+    Browser->>FnbOrderController: GET /fnb-orders
+    FnbOrderController->>DB: Query orders, fnb_items, addons, employees, consoles
+    DB-->>FnbOrderController: Data
+    FnbOrderController-->>Browser: Inertia: FnbOrders/Index
+
+    Operator->>Browser: Pilih item, qty, addon & klik Pesan
+    Browser->>FnbOrderController: POST /fnb-orders
+    FnbOrderController->>FnbOrderController: Hitung total (unit_price + addons) x qty
+    FnbOrderController->>FnbOrder: create(code:FNB-XXXXXX, status:paid, paid_at:now)
+    loop Setiap item
+        FnbOrderController->>FnbOrderItem: create(fnb_order_id, fnb_item_id, qty, subtotal)
+    end
+    FnbOrderController-->>Browser: redirect → /fnb-orders ✅
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────── -->
+    <!-- 7. SEQUENCE: KONVERSI RESERVASI -->
+    <!-- ───────────────────────────── -->
+    <div class="diagram-section" id="seq4">
+      <div class="diagram-card">
+        <div class="card-header">
+          <span class="card-type-badge badge-sequence">Sequence</span>
+          <span class="card-title">Sequence Diagram — Konversi Reservasi ke Rental</span>
+          <span class="card-num">#7</span>
+          <div class="card-actions">
+            <button class="btn-action btn-svg" onclick="exportSVG('seq4')">⬇ SVG</button>
+            <button class="btn-action btn-png" id="btn-seq4" onclick="exportPNG('seq4')">⬇ PNG</button>
+          </div>
+        </div>
+        <div class="diagram-body">
+          <div class="mermaid" id="diagram-seq4">
+%%{init: {'theme': 'dark', 'themeVariables': {'background': '#0d1117', 'primaryColor': '#1a2e3a', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#06b6d4', 'lineColor': '#22d3ee', 'actorBkg': '#1a2e3a', 'actorBorder': '#06b6d4'}}}%%
+sequenceDiagram
+    actor Operator
+    participant Browser
+    participant ReservationController
+    participant Reservation
+    participant RentalService
+    participant Rental
+    participant Console
+
+    Operator->>Browser: Klik Konversi ke Rental
+    Browser->>ReservationController: POST /reservations/{id}/convert
+    ReservationController->>Reservation: cek status !== converted
+
+    alt sudah converted
+        ReservationController-->>Browser: back() with error
+    else belum converted
+        ReservationController->>RentalService: create(console_id, employee_id, customer_name, duration_hours)
+        RentalService->>Console: findOrFail(console_id)
+        RentalService->>Rental: create(status:running)
+        RentalService->>Console: update(status: occupied)
+        RentalService-->>ReservationController: Rental object
+        ReservationController->>Reservation: update(status: converted, rental_id)
+        ReservationController-->>Browser: redirect → /rentals/{id}
+        Browser-->>Operator: Halaman Detail Rental (running) ✅
+    end
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────── -->
+    <!-- 8. ACTIVITY: RENTAL -->
+    <!-- ───────────────────────────── -->
+    <div class="diagram-section" id="act1">
+      <div class="diagram-card">
+        <div class="card-header">
+          <span class="card-type-badge badge-activity">Activity</span>
+          <span class="card-title">Activity Diagram — Proses Rental Lengkap</span>
+          <span class="card-num">#8</span>
+          <div class="card-actions">
+            <button class="btn-action btn-svg" onclick="exportSVG('act1')">⬇ SVG</button>
+            <button class="btn-action btn-png" id="btn-act1" onclick="exportPNG('act1')">⬇ PNG</button>
+          </div>
+        </div>
+        <div class="diagram-body">
+          <div class="mermaid" id="diagram-act1">
+%%{init: {'theme': 'dark', 'themeVariables': {'background': '#0d1117', 'primaryColor': '#3a2010', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#ea580c', 'lineColor': '#fb923c'}}}%%
+flowchart TD
+    Start([🟢 Mulai])
+    A[Operator membuka halaman Rentals]
+    B[Pilih Console yang Available]
+    C[Isi data Customer dan Operator]
+    D{Ada durasi tetap?}
+    E1[Buat Rental: open_time]
+    E2[Buat Rental: duration]
+    F[Console → status: occupied]
+    G[Rental berjalan - status: running]
+
+    H{Operator ingin...}
+    H1[Tambah FnB]
+    H2[Tambah Waktu Extension]
+    H3[Selesaikan]
+    H4[Bayar DP]
+
+    I1[Pilih FnB Item dan Addon]
+    I2[Create RentalFnbItem]
+    I3[Update fnb_amount dan total_amount]
+
+    J1[Input tambahan menit dan harga]
+    J2[Create RentalExtension]
+    J3[Update extra_amount dan scheduled_end_at]
+
+    K{Tipe rental?}
+    K1[Billing: scheduled duration]
+    K2[Billing: round up ke 10 menit min 60 menit]
+    L[Update rental_amount, ended_at, status: finished]
+    M[Console → status: available]
+    N[Redirect ke halaman Payment]
+
+    P[Input metode dan jumlah bayar]
+    Q[Create RentalPayment]
+    R{Total bayar >= total?}
+    R1[status → paid]
+    R2[status → half_paid]
+    S{ended_at ada?}
+    S1[Redirect ke Receipt ✅]
+    S2[Kembali ke Show Rental DP mid-session]
+
+    End1([🔴 Selesai — Lunas])
+    End2([⏸️ Menunggu pelunasan])
+
+    Start --> A --> B --> C --> D
+    D -->|Ya| E2
+    D -->|Tidak| E1
+    E1 --> F
+    E2 --> F
+    F --> G
+
+    G --> H
+    H -->|Tambah FnB| H1
+    H -->|Extend| H2
+    H -->|Finish| H3
+    H -->|Bayar DP| H4
+
+    H1 --> I1 --> I2 --> I3 --> G
+    H2 --> J1 --> J2 --> J3 --> G
+    H4 --> P
+
+    H3 --> K
+    K -->|duration| K1 --> L
+    K -->|open_time| K2 --> L
+    L --> M --> N --> P
+
+    P --> Q --> R
+    R -->|Ya| R1 --> S
+    R -->|Tidak| R2 --> S
+    S -->|Ya| S1 --> End1
+    S -->|Tidak| S2 --> End2
+
+    End2 -.->|Operator lunasi nanti| N
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────── -->
+    <!-- 9. ACTIVITY: FNB STANDALONE -->
+    <!-- ───────────────────────────── -->
+    <div class="diagram-section" id="act2">
+      <div class="diagram-card">
+        <div class="card-header">
+          <span class="card-type-badge badge-activity">Activity</span>
+          <span class="card-title">Activity Diagram — FnB Order Standalone</span>
+          <span class="card-num">#9</span>
+          <div class="card-actions">
+            <button class="btn-action btn-svg" onclick="exportSVG('act2')">⬇ SVG</button>
+            <button class="btn-action btn-png" id="btn-act2" onclick="exportPNG('act2')">⬇ PNG</button>
+          </div>
+        </div>
+        <div class="diagram-body">
+          <div class="mermaid" id="diagram-act2">
+%%{init: {'theme': 'dark', 'themeVariables': {'background': '#0d1117', 'primaryColor': '#3a2010', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#ea580c', 'lineColor': '#fb923c'}}}%%
+flowchart TD
+    Start([🟢 Mulai])
+    A[Operator buka halaman FnB Orders]
+    B[Klik Buat Order FnB]
+    C[Pilih Operator dan Console opsional]
+    D[Tambah item: FnbItem + qty + addon]
+    E[Pilih metode pembayaran cash atau qris]
+    F[Submit form]
+    G[Hitung total per item: unit_price + addons_price x qty]
+    H[Generate kode: FNB-XXXXXX]
+    I[Create FnbOrder - status: paid, paid_at: now]
+    J[Create FnbOrderItem untuk setiap item]
+    K[Redirect ke daftar FnB Orders]
+    End([🔴 Selesai])
+
+    Start --> A --> B --> C --> D --> E --> F
+    F --> G --> H --> I --> J --> K --> End
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────── -->
+    <!-- 10. STATE MACHINE: RENTAL -->
+    <!-- ───────────────────────────── -->
+    <div class="diagram-section" id="sm1">
+      <div class="diagram-card">
+        <div class="card-header">
+          <span class="card-type-badge badge-state">State Machine</span>
+          <span class="card-title">State Machine Diagram — Status Rental</span>
+          <span class="card-num">#10</span>
+          <div class="card-actions">
+            <button class="btn-action btn-svg" onclick="exportSVG('sm1')">⬇ SVG</button>
+            <button class="btn-action btn-png" id="btn-sm1" onclick="exportPNG('sm1')">⬇ PNG</button>
+          </div>
+        </div>
+        <div class="diagram-body">
+          <div class="mermaid" id="diagram-sm1">
+%%{init: {'theme': 'dark', 'themeVariables': {'background': '#0d1117', 'primaryColor': '#3a1a20', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#dc2626', 'lineColor': '#f87171'}}}%%
+stateDiagram-v2
+    [*] --> running : create() — Rental dimulai
+
+    running --> finished : finish() — Waktu selesai, hitung biaya
+    running --> half_paid : pay() saat masih running — DP mid-session
+
+    finished --> paid : pay() — Bayar lunas
+    finished --> half_paid : pay() — Bayar sebagian
+
+    half_paid --> paid : pay() — Pelunasan sisa tagihan
+
+    paid --> [*] : Transaksi selesai ✅
+
+    note right of running
+        Console.status = occupied
+        FnB dan Extension bisa ditambah
+    end note
+
+    note right of finished
+        Console.status = available
+        rental_amount sudah dihitung
+    end note
+
+    note right of paid
+        Struk bisa dicetak
+    end note
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────── -->
+    <!-- 11. STATE MACHINE: RESERVATION -->
+    <!-- ───────────────────────────── -->
+    <div class="diagram-section" id="sm2">
+      <div class="diagram-card">
+        <div class="card-header">
+          <span class="card-type-badge badge-state">State Machine</span>
+          <span class="card-title">State Machine Diagram — Status Reservation</span>
+          <span class="card-num">#11</span>
+          <div class="card-actions">
+            <button class="btn-action btn-svg" onclick="exportSVG('sm2')">⬇ SVG</button>
+            <button class="btn-action btn-png" id="btn-sm2" onclick="exportPNG('sm2')">⬇ PNG</button>
+          </div>
+        </div>
+        <div class="diagram-body">
+          <div class="mermaid" id="diagram-sm2">
+%%{init: {'theme': 'dark', 'themeVariables': {'background': '#0d1117', 'primaryColor': '#3a1a20', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#dc2626', 'lineColor': '#f87171'}}}%%
+stateDiagram-v2
+    [*] --> pending : store() — Reservasi dibuat
+
+    pending --> confirmed : update status=confirmed
+    pending --> cancelled : update status=cancelled atau destroy
+
+    confirmed --> cancelled : update status=cancelled
+    confirmed --> converted : convert() — Jadi Rental aktif
+
+    cancelled --> [*] : Reservasi batal
+
+    note right of converted
+        Rental baru dibuat — status: running
+        reservation.rental_id = rental.id
+    end note
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────── -->
+    <!-- 12. COMPONENT DIAGRAM -->
+    <!-- ───────────────────────────── -->
+    <div class="diagram-section" id="comp">
+      <div class="diagram-card">
+        <div class="card-header">
+          <span class="card-type-badge badge-component">Component</span>
+          <span class="card-title">Component Diagram — Arsitektur Sistem</span>
+          <span class="card-num">#12</span>
+          <div class="card-actions">
+            <button class="btn-action btn-svg" onclick="exportSVG('comp')">⬇ SVG</button>
+            <button class="btn-action btn-png" id="btn-comp" onclick="exportPNG('comp')">⬇ PNG</button>
+          </div>
+        </div>
+        <div class="diagram-body">
+          <div class="mermaid" id="diagram-comp">
+%%{init: {'theme': 'dark', 'themeVariables': {'background': '#0d1117', 'primaryColor': '#1a3530', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#16a34a', 'lineColor': '#4ade80', 'clusterBkg': '#111827', 'clusterBorder': '#1e2d4a'}}}%%
+graph TB
+    subgraph Frontend ["🖥️ Frontend — Vue 3 + Inertia.js"]
+        FE1["Pages/Rentals\nIndex · Show · Payment · Receipt · History"]
+        FE2["Pages/FnbOrders\nIndex · Show"]
+        FE3["Pages/Reservations\nIndex"]
+        FE4["Pages/Master\nEmployees · Consoles · Games · FnB · Packages"]
+        FE5["Pages/Dashboard\nIndex · RoomMonitor"]
+    end
+
+    subgraph Backend ["⚙️ Backend — Laravel 12"]
+        subgraph Controllers ["HTTP Controllers"]
+            C1["RentalController"]
+            C2["FnbOrderController"]
+            C3["ReservationController"]
+            C4["ConsoleController · EmployeeController"]
+            C5["DashboardController · FnbController"]
+        end
+
+        subgraph Services ["Business Services"]
+            S1["RentalService\ncreate · addTime · addFnb · finish · pay"]
+            S2["DashboardService\ngetSummary · getActiveRentals"]
+        end
+
+        subgraph Models ["Eloquent Models"]
+            M1["Rental · RentalExtension · RentalPayment · RentalFnbItem"]
+            M2["Console · Game"]
+            M3["Employee · Package · CashOutbound"]
+            M4["FnbItem · FnbAddon · FnbOrder · FnbOrderItem"]
+            M5["Reservation · User"]
+        end
+    end
+
+    subgraph DB ["🗄️ Database — PostgreSQL"]
+        D1[("rentals + extensions + payments + fnb_items")]
+        D2[("consoles + games + console_games")]
+        D3[("employees + packages + cash_outbounds")]
+        D4[("fnb_orders + fnb_order_items + fnb_items + fnb_addons")]
+        D5[("reservations + users")]
+    end
+
+    FE1 <--> C1
+    FE2 <--> C2
+    FE3 <--> C3
+    FE4 <--> C4
+    FE5 <--> C5
+
+    C1 --> S1
+    C3 --> S1
+    C5 --> S2
+
+    S1 --> M1
+    S1 --> M2
+    S2 --> M1
+    C2 --> M4
+    C4 --> M2
+    C4 --> M3
+
+    M1 --- D1
+    M2 --- D2
+    M3 --- D3
+    M4 --- D4
+    M5 --- D5
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // ─── MERMAID INIT ───────────────────────────────
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    securityLevel: 'loose',
+    fontFamily: 'Inter, sans-serif',
+    fontSize: 13,
+    flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
+    sequence: { useMaxWidth: false, actorMargin: 60, messageMargin: 40 },
+    er: { useMaxWidth: false },
+    stateDiagram: { useMaxWidth: false },
+  });
+
+  // ─── SIDEBAR ACTIVE ─────────────────────────────
+  const navItems = document.querySelectorAll('.nav-item');
+  const sections = document.querySelectorAll('.diagram-section');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        navItems.forEach(item => {
+          item.classList.toggle('active', item.getAttribute('href') === '#' + id);
+        });
+      }
+    });
+  }, { rootMargin: '-20% 0px -60% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+
+  // ─── TOAST ──────────────────────────────────────
+  function showToast(msg, isError = false) {
+    const toast = document.getElementById('toast');
+    toast.textContent = (isError ? '✗ ' : '✓ ') + msg;
+    toast.className = 'show' + (isError ? ' error' : '');
+    setTimeout(() => toast.className = '', 2800);
+  }
+
+  // ─── PROGRESS BAR ───────────────────────────────
+  function setProgress(pct) {
+    document.getElementById('progress-bar').style.width = pct + '%';
+    if (pct >= 100) {
+      setTimeout(() => { document.getElementById('progress-bar').style.width = '0%'; }, 600);
+    }
+  }
+
+  // ─── GET SVG ELEMENT ────────────────────────────
+  function getSvgEl(diagramId) {
+    const container = document.getElementById('diagram-' + diagramId);
+    if (!container) return null;
+    return container.querySelector('svg');
+  }
+
+  // ─── EXPORT SVG ─────────────────────────────────
+  function exportSVG(diagramId) {
+    const svg = getSvgEl(diagramId);
+    if (!svg) { showToast('Diagram belum siap, tunggu sebentar.', true); return; }
+
+    const serializer = new XMLSerializer();
+    let svgStr = serializer.serializeToString(svg);
+    // inject font
+    svgStr = svgStr.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'UML-' + diagramId.toUpperCase() + '-CubicGamingLounge.svg';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('SVG diagram #' + diagramId + ' berhasil diexport!');
+  }
+
+  // ─── EXPORT PNG ─────────────────────────────────
+  // Scale adaptif: diagram besar pakai 1×, kecil pakai 2× (retina)
+  // Canvas max 4096px untuk mencegah browser OOM
+  // Timeout 15 detik agar tidak hang selamanya
+  async function exportPNG(diagramId) {
+    const btn = document.getElementById('btn-' + diagramId);
+    const svg = getSvgEl(diagramId);
+
+    if (!svg) {
+      showToast('Diagram belum siap, tunggu sebentar.', true);
+      return;
+    }
+
+    btn.classList.add('loading');
+    btn.textContent = '⏳ Exporting...';
+    setProgress(20);
+
+    try {
+      // Clone SVG & set background
+      const clone = svg.cloneNode(true);
+      const bbox = svg.getBoundingClientRect();
+      const W = Math.max(svg.viewBox.baseVal.width || bbox.width, 800);
+      const H = Math.max(svg.viewBox.baseVal.height || bbox.height, 400);
+
+      clone.setAttribute('width', W);
+      clone.setAttribute('height', H);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+      // Add dark background rect
+      const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bgRect.setAttribute('width', '100%');
+      bgRect.setAttribute('height', '100%');
+      bgRect.setAttribute('fill', '#0d1117');
+      clone.insertBefore(bgRect, clone.firstChild);
+
+      const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      styleEl.textContent = `* { font-family: "Inter", "Segoe UI", sans-serif; } .label { font-size: 13px; }`;
+      clone.insertBefore(styleEl, clone.firstChild);
+
+      setProgress(40);
+
+      const svgData = new XMLSerializer().serializeToString(clone);
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const svgUrl = URL.createObjectURL(svgBlob);
+
+      setProgress(60);
+
+      // ── Adaptive scale: cap canvas at 4096px ──────────────────────────
+      const MAX_CANVAS = 4096;
+      let scale = W > 2000 || H > 2000 ? 1 : 2;   // besar → 1×, kecil → 2× retina
+      if (W * scale > MAX_CANVAS) scale = MAX_CANVAS / W;
+      if (H * scale > MAX_CANVAS) scale = Math.min(scale, MAX_CANVAS / H);
+      scale = Math.max(scale, 0.5);  // minimum 0.5×
+
+      await new Promise((resolve, reject) => {
+        // ── Timeout guard 15 detik ────────────────────────────────────────
+        const timer = setTimeout(() => {
+          URL.revokeObjectURL(svgUrl);
+          reject(new Error('Export timeout — diagram terlalu besar, gunakan Export SVG'));
+        }, 15000);
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          clearTimeout(timer);
+          const cW = Math.round(W * scale);
+          const cH = Math.round(H * scale);
+          const canvas = document.createElement('canvas');
+          canvas.width  = cW;
+          canvas.height = cH;
+          const ctx = canvas.getContext('2d');
+          ctx.scale(scale, scale);
+          ctx.fillStyle = '#0d1117';
+          ctx.fillRect(0, 0, W, H);
+          ctx.drawImage(img, 0, 0, W, H);
+
+          setProgress(85);
+
+          canvas.toBlob(blob => {
+            if (!blob) { reject(new Error('Canvas toBlob failed')); return; }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'UML-' + diagramId.toUpperCase() + '-CubicGamingLounge.png';
+            a.click();
+            URL.revokeObjectURL(url);
+            URL.revokeObjectURL(svgUrl);
+            setProgress(100);
+            const resLabel = scale >= 2 ? '2× resolusi' : `${Math.round(cW)}×${Math.round(cH)}px`;
+            showToast(`PNG #${diagramId} berhasil diexport! (${resLabel})`);
+            resolve();
+          }, 'image/png');
+        };
+        img.onerror = () => {
+          clearTimeout(timer);
+          URL.revokeObjectURL(svgUrl);
+          reject(new Error('Image load failed'));
+        };
+        img.src = svgUrl;
+      });
+
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || 'Gagal export PNG. Coba gunakan Export SVG.', true);
+      setProgress(0);
+    } finally {
+      btn.classList.remove('loading');
+      btn.innerHTML = '⬇ PNG';
+    }
+  }
+
+  // ─── EXPORT ALL PNG ─────────────────────────────
+  const diagramIds = ['uc','erd','class','seq1','seq2','seq3','seq4','act1','act2','sm1','sm2','comp'];
+
+  document.getElementById('btn-export-all').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-export-all');
+    btn.textContent = '⏳ Exporting...';
+    btn.disabled = true;
+
+    for (let i = 0; i < diagramIds.length; i++) {
+      setProgress(Math.round((i / diagramIds.length) * 95));
+      await exportPNG(diagramIds[i]);
+      await new Promise(r => setTimeout(r, 600)); // small delay between exports
+    }
+
+    setProgress(100);
+    showToast('Semua 12 diagram berhasil diexport!');
+    btn.textContent = '⬇️ Export Semua PNG';
+    btn.disabled = false;
+  });
+</script>
+
+</body>
+</html>

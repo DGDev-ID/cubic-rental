@@ -150,6 +150,10 @@ class RentalController extends Controller
         if ($request->date) {
             $query->whereDate('started_at', $request->date);
             $fnbQuery->whereDate('paid_at', $request->date);
+        } elseif ($request->month) {
+            [$y, $m] = explode('-', $request->month);
+            $query->whereYear('started_at', (int) $y)->whereMonth('started_at', (int) $m);
+            $fnbQuery->whereYear('paid_at', (int) $y)->whereMonth('paid_at', (int) $m);
         }
         if ($request->employee_id) {
             $query->where('employee_id', $request->employee_id);
@@ -164,21 +168,59 @@ class RentalController extends Controller
             $fnbQuery->where('payment_method', $request->payment_method);
         }
 
+        // Filtered summary (revenue & customers for the current filter, excluding cancelled)
+        $summaryRevenue = $query->clone()->whereIn('status', ['finished', 'paid', 'half_paid'])->sum('total_amount')
+            + $fnbQuery->clone()->sum('total_amount');
+        $summaryCustomers = $query->clone()->whereIn('status', ['finished', 'paid', 'half_paid'])->count()
+            + $fnbQuery->clone()->count();
+
+        // Today stats (always today, unaffected by filters)
+        $today = now()->toDateString();
+        $todayRevenue = Rental::whereIn('status', ['finished', 'paid', 'half_paid'])
+                ->whereDate('started_at', $today)->sum('total_amount')
+            + \App\Models\FnbOrder::where('status', 'paid')->whereDate('paid_at', $today)->sum('total_amount');
+        $todayCustomers = Rental::whereDate('started_at', $today)->count()
+            + \App\Models\FnbOrder::where('status', 'paid')->whereDate('paid_at', $today)->count();
+
+        // Monthly stats for the selected year
+        $statsYear = (int) ($request->stats_year ?? now()->year);
+        $mRentals = Rental::whereIn('status', ['finished', 'paid', 'half_paid'])
+            ->whereYear('started_at', $statsYear)
+            ->selectRaw('EXTRACT(MONTH FROM started_at) as month, SUM(total_amount) as revenue, COUNT(*) as customers')
+            ->groupByRaw('EXTRACT(MONTH FROM started_at)')
+            ->get()->keyBy(fn($r) => (int) $r->month);
+        $mFnb = \App\Models\FnbOrder::where('status', 'paid')
+            ->whereYear('paid_at', $statsYear)
+            ->selectRaw('EXTRACT(MONTH FROM paid_at) as month, SUM(total_amount) as revenue, COUNT(*) as customers')
+            ->groupByRaw('EXTRACT(MONTH FROM paid_at)')
+            ->get()->keyBy(fn($r) => (int) $r->month);
+        $monthlyStats = collect(range(1, 12))->map(fn($m) => [
+            'month'     => $m,
+            'revenue'   => (float) (($mRentals->get($m)?->revenue ?? 0) + ($mFnb->get($m)?->revenue ?? 0)),
+            'customers' => (int) (($mRentals->get($m)?->customers ?? 0) + ($mFnb->get($m)?->customers ?? 0)),
+        ])->values();
+
         return Inertia::render('Rentals/History', [
-            'rentals'   => $query->orderByDesc('started_at')->paginate(20)->withQueryString(),
-            'fnb_orders'=> $fnbQuery->orderByDesc('paid_at')->paginate(20, ['*'], 'fnb_page')->withQueryString(),
-            'employees' => Employee::orderBy('name')->get(),
-            'consoles'  => Console::orderBy('name')->get(),
-            'filters'   => $request->only(['search', 'date', 'employee_id', 'console_id', 'payment_method']),
+            'rentals'           => $query->orderByDesc('started_at')->paginate(20)->withQueryString(),
+            'fnb_orders'        => $fnbQuery->orderByDesc('paid_at')->paginate(20, ['*'], 'fnb_page')->withQueryString(),
+            'employees'         => Employee::orderBy('name')->get(),
+            'consoles'          => Console::orderBy('name')->get(),
+            'filters'           => $request->only(['search', 'date', 'month', 'employee_id', 'console_id', 'payment_method']),
+            'today_revenue'     => (float) $todayRevenue,
+            'today_customers'   => (int) $todayCustomers,
+            'summary_revenue'   => (float) $summaryRevenue,
+            'summary_customers' => (int) $summaryCustomers,
+            'monthly_stats'     => $monthlyStats,
+            'stats_year'        => $statsYear,
         ]);
     }
 
     public function exportExcel(Request $request)
     {
-        $query = Rental::with(['console', 'employee', 'payments'])
-            ->whereIn('status', ['finished', 'paid', 'half_paid', 'cancelled']);
+        $query = Rental::with(['console'])
+            ->whereIn('status', ['finished', 'paid', 'half_paid']);
 
-        $fnbQuery = \App\Models\FnbOrder::with(['employee', 'console'])
+        $fnbQuery = \App\Models\FnbOrder::with(['console'])
             ->where('status', 'paid');
 
         if ($request->search) {
@@ -194,6 +236,10 @@ class RentalController extends Controller
         if ($request->date) {
             $query->whereDate('started_at', $request->date);
             $fnbQuery->whereDate('paid_at', $request->date);
+        } elseif ($request->month) {
+            [$y, $m] = explode('-', $request->month);
+            $query->whereYear('started_at', (int) $y)->whereMonth('started_at', (int) $m);
+            $fnbQuery->whereYear('paid_at', (int) $y)->whereMonth('paid_at', (int) $m);
         }
         if ($request->employee_id) {
             $query->where('employee_id', $request->employee_id);
@@ -221,160 +267,44 @@ class RentalController extends Controller
             "Expires"             => "0",
         ];
 
-        // Helper: format rupiah tanpa simbol, pakai titik sebagai pemisah ribuan
-        $fmt = fn($v) => number_format((float)$v, 0, ',', '.');
-
-        // Helper: tulis satu baris CSV dengan semicolon delimiter (standar Excel Indonesia)
+        $fmt = fn($v) => number_format((float) $v, 0, ',', '.');
         $row = fn($handle, array $cols) => fputcsv($handle, $cols, ';');
 
-        $statusLabel = [
-            'paid'      => 'Lunas',
-            'half_paid' => 'Sebagian',
-            'finished'  => 'Selesai',
-            'cancelled' => 'Dibatalkan',
-            'running'   => 'Berjalan',
-        ];
-
-        $callback = function () use ($rentals, $fnbOrders, $fmt, $row, $statusLabel) {
+        $callback = function () use ($rentals, $fnbOrders, $fmt, $row) {
             $file = fopen('php://output', 'w');
-
-            // BOM agar Excel buka UTF-8 dengan benar
             fputs($file, "\xEF\xBB\xBF");
 
-            // ──────────────────────────────────────────────
-            // BAGIAN 1 — RENTAL
-            // ──────────────────────────────────────────────
-            $row($file, ['=== RIWAYAT RENTAL ===']);
-            $row($file, []);  // baris kosong
+            $row($file, ['Tanggal', 'Console', 'Total FNB (Rp)', 'Total Rental (Rp)', 'Total Semua (Rp)']);
 
-            // Header kolom rental
-            $row($file, [
-                'No',
-                'Kode Transaksi',
-                'Customer',
-                'Console',
-                'Tipe Console',
-                'Operator',
-                'Tipe Rental',
-                'Mulai',
-                'Selesai',
-                'Status',
-                'Metode Bayar',
-                'Subtotal Rental (Rp)',
-                'FNB (Rp)',
-                'Extra (Rp)',
-                'Total (Rp)',
-                'Dibayar (Rp)',
-                'Sisa (Rp)',
-            ]);
+            $totalFnb = $totalRental = $totalSemua = 0;
 
-            $rentalTotal       = 0;
-            $rentalFnbTotal    = 0;
-            $rentalExtraTotal  = 0;
-            $rentalGrandTotal  = 0;
-            $rentalPaidTotal   = 0;
-
-            foreach ($rentals as $i => $r) {
-                $methods  = $r->payments->pluck('method')->map(fn($m) => strtoupper($m))->join(' + ');
-                $paid     = $r->payments->sum('amount');
-                $sisa     = max(0, $r->total_amount - $paid);
-
-                $rentalTotal      += $r->rental_amount;
-                $rentalFnbTotal   += $r->fnb_amount;
-                $rentalExtraTotal += $r->extra_amount;
-                $rentalGrandTotal += $r->total_amount;
-                $rentalPaidTotal  += $paid;
-
+            foreach ($rentals as $r) {
+                $totalFnb    += $r->fnb_amount;
+                $totalRental += $r->rental_amount;
+                $totalSemua  += $r->total_amount;
                 $row($file, [
-                    $i + 1,
-                    $r->transaction_code,
-                    $r->customer_name,
+                    $r->started_at?->format('d/m/Y') ?? '-',
                     $r->console->name ?? '-',
-                    strtoupper($r->console->type ?? '-'),
-                    $r->employee->name ?? '-',
-                    strtoupper($r->rental_type),
-                    $r->started_at ? $r->started_at->format('d/m/Y H:i') : '-',
-                    $r->ended_at   ? $r->ended_at->format('d/m/Y H:i')   : '-',
-                    $statusLabel[$r->status] ?? $r->status,
-                    $methods ?: '-',
-                    $fmt($r->rental_amount),
                     $fmt($r->fnb_amount),
-                    $fmt($r->extra_amount),
+                    $fmt($r->rental_amount),
                     $fmt($r->total_amount),
-                    $fmt($paid),
-                    $fmt($sisa),
                 ]);
             }
 
-            // Baris kosong + subtotal rental
-            $row($file, []);
-            $row($file, [
-                '', '', '', '', '', '', '', '', '',
-                'SUBTOTAL RENTAL',
-                '',
-                $fmt($rentalTotal),
-                $fmt($rentalFnbTotal),
-                $fmt($rentalExtraTotal),
-                $fmt($rentalGrandTotal),
-                $fmt($rentalPaidTotal),
-                $fmt(max(0, $rentalGrandTotal - $rentalPaidTotal)),
-            ]);
-            $row($file, []);
-
-            // ──────────────────────────────────────────────
-            // BAGIAN 2 — FNB ONLY
-            // ──────────────────────────────────────────────
-            $row($file, ['=== RIWAYAT FNB ONLY ===']);
-            $row($file, []);
-
-            $row($file, [
-                'No',
-                'Kode Transaksi',
-                'Customer',
-                'Console',
-                'Operator',
-                'Waktu',
-                'Status',
-                'Metode Bayar',
-                'Total FNB (Rp)',
-            ]);
-
-            $fnbGrandTotal = 0;
-
-            foreach ($fnbOrders as $i => $f) {
-                $fnbGrandTotal += $f->total_amount;
-
+            foreach ($fnbOrders as $f) {
+                $totalFnb   += $f->total_amount;
+                $totalSemua += $f->total_amount;
                 $row($file, [
-                    $i + 1,
-                    $f->code,
-                    $f->customer_name ?: '-',
+                    $f->paid_at?->format('d/m/Y') ?? '-',
                     $f->console->name ?? '-',
-                    $f->employee->name ?? '-',
-                    $f->paid_at ? $f->paid_at->format('d/m/Y H:i') : '-',
-                    'Lunas',
-                    strtoupper($f->payment_method ?? '-'),
+                    $fmt($f->total_amount),
+                    $fmt(0),
                     $fmt($f->total_amount),
                 ]);
             }
 
             $row($file, []);
-            $row($file, [
-                '', '', '', '', '', '',
-                'SUBTOTAL FNB',
-                '',
-                $fmt($fnbGrandTotal),
-            ]);
-            $row($file, []);
-
-            // ──────────────────────────────────────────────
-            // GRAND TOTAL
-            // ──────────────────────────────────────────────
-            $row($file, ['=== RINGKASAN ===']);
-            $row($file, []);
-            $row($file, ['Keterangan', 'Jumlah Transaksi', 'Total (Rp)']);
-            $row($file, ['Rental', $rentals->count(), $fmt($rentalGrandTotal)]);
-            $row($file, ['FNB Only', $fnbOrders->count(), $fmt($fnbGrandTotal)]);
-            $row($file, ['GRAND TOTAL', $rentals->count() + $fnbOrders->count(), $fmt($rentalGrandTotal + $fnbGrandTotal)]);
+            $row($file, ['TOTAL', '', $fmt($totalFnb), $fmt($totalRental), $fmt($totalSemua)]);
             $row($file, []);
             $row($file, ['Diekspor pada', now()->format('d/m/Y H:i:s')]);
 
