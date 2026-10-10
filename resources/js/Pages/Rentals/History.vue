@@ -417,9 +417,9 @@ const detail = ref<RentalRow | null>(null)
             <td class="px-4 py-3 font-mono text-xs" style="color:#94a3b8;">{{ r.transaction_code }}</td>
             <td class="px-4 py-3 text-white">{{ r.customer_name }}</td>
             <td class="px-4 py-3">
-              <span class="text-white">{{ r.console.name }}</span>
-              <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full" :style="`background:rgba(99,102,241,.15); color:${typeColors[r.console.type]}`">
-                {{ r.console.type }}
+              <span class="text-white">{{ r.console?.name ?? '(dihapus)' }}</span>
+              <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full" :style="`background:rgba(99,102,241,.15); color:${typeColors[r.console?.type ?? 'regular']}`">
+                {{ r.console?.type ?? '-' }}
               </span>
             </td>
             <td class="px-4 py-3 text-xs" style="color:#94a3b8;">{{ formatDt(r.started_at) }}</td>
@@ -512,7 +512,7 @@ const detail = ref<RentalRow | null>(null)
     <div v-if="detail" class="mt-4 rounded-xl p-5" style="background:#1a1a26; border:1px solid rgba(139,92,246,.3);">
       <h3 class="text-sm font-semibold text-white mb-3">Detail – {{ detail.transaction_code }}</h3>
       <div class="grid grid-cols-2 gap-y-2 text-sm">
-        <div><span style="color:#94a3b8;">Operator</span><p class="text-white">{{ detail.employee.name }}</p></div>
+        <div><span style="color:#94a3b8;">Operator</span><p class="text-white">{{ detail.employee?.name ?? '(dihapus)' }}</p></div>
         <div><span style="color:#94a3b8;">Tipe</span><p class="text-white capitalize">{{ detail.rental_type.replace('_', ' ') }}</p></div>
         <div><span style="color:#94a3b8;">Mulai</span><p class="text-white">{{ formatDt(detail.started_at) }}</p></div>
         <div><span style="color:#94a3b8;">Selesai</span><p class="text-white">{{ formatDt(detail.ended_at) }}</p></div>

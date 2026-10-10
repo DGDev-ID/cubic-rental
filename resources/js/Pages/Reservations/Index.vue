@@ -224,17 +224,17 @@ function editEstimated() {
               </p>
             </td>
             <td class="px-4 py-3">
-              <p class="text-white">{{ r.console.name }}</p>
-              <p class="text-xs" style="color:#94a3b8;">{{ r.employee.name }}</p>
+              <p class="text-white">{{ r.console?.name ?? '(dihapus)' }}</p>
+              <p class="text-xs" style="color:#94a3b8;">{{ r.employee?.name ?? '(dihapus)' }}</p>
             </td>
             <td class="px-4 py-3">
               <span v-if="r.duration_hours" class="text-white">{{ r.duration_hours }}j</span>
               <span v-else style="color:#64748b;">Open</span>
             </td>
             <td class="px-4 py-3">
-              <p class="text-white text-xs">{{ formatCurrency(r.console.price_per_hour) }}<span style="color:#64748b;">/j</span></p>
-              <p v-if="r.duration_hours" class="text-xs font-semibold" style="color:#a78bfa;">
-                ≈ {{ formatCurrency(r.console.price_per_hour * r.duration_hours) }}
+              <p class="text-white text-xs">{{ formatCurrency(r.console?.price_per_hour ?? 0) }}<span style="color:#64748b;">/j</span></p>
+              <p v-if="r.duration_hours && r.console" class="text-xs font-semibold" style="color:#a78bfa;">
+                ≈ {{ formatCurrency((r.console?.price_per_hour ?? 0) * r.duration_hours) }}
               </p>
               <p v-else class="text-xs" style="color:#64748b;">Open end</p>
             </td>
@@ -495,7 +495,7 @@ function editEstimated() {
         <p class="text-sm" style="color:#94a3b8;">Reservasi berikut akan dikonversi menjadi rental aktif:</p>
         <div class="p-3 rounded-xl text-sm" style="background:#12121a; border:1px solid #2a2a3a;">
           <p class="text-white font-medium">{{ confirmConvert.customer_name }}</p>
-          <p style="color:#94a3b8;">{{ confirmConvert.console.name }}</p>
+          <p style="color:#94a3b8;">{{ confirmConvert.console?.name ?? '(dihapus)' }}</p>
           <p v-if="confirmConvert.duration_hours" style="color:#a78bfa;">{{ confirmConvert.duration_hours }} jam</p>
         </div>
       </div>
