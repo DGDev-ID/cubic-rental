@@ -2,72 +2,72 @@
 import { Printer, ArrowLeft } from 'lucide-vue-next'
 const printPage = () => window.print()
 
-  defineProps<{
-    rental: {
-      id: number; transaction_code: string; customer_name: string; rental_type: string;
-      started_at: string; ended_at: string; notes: string | null;
-      rental_amount: number; fnb_amount: number; extra_amount: number; total_amount: number;
-      console: { name: string; type: string }
-      employee: { name: string }
-      fnb_items: { fnb_item_name: string; quantity: number; unit_price: number; subtotal: number; addons: { name: string; price: number }[] }[]
-      payments: { method: string; amount: number; created_at: string }[]
-    }
-    store_name: string
-  }>()
-  
-  function formatCurrency(v: number) {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v)
+defineProps<{
+  rental: {
+    id: number; transaction_code: string; customer_name: string; rental_type: string;
+    started_at: string; ended_at: string; notes: string | null;
+    rental_amount: number; fnb_amount: number; extra_amount: number; total_amount: number;
+    console: { name: string; type: string }
+    employee: { name: string }
+    fnb_items: { fnb_item?: { name: string }; fnb_item_name?: string; qty?: number; quantity?: number; unit_price: number; subtotal: number; addons: { name: string; price: number }[] }[]
+    payments: { method: string; amount: number; created_at: string }[]
   }
-  function formatDt(d: string) {
-    return new Date(d).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  }
-  function methodLabel(m: string) {
-    return { cash: 'Cash', qris: 'QRIS', transfer: 'Transfer', debit: 'Debit' }[m] ?? m
-  }
-  </script>
-  
-  <template>
-    <div class="receipt-container">
-      <div class="no-print mb-4 flex gap-2">
-        <button @click="printPage"
-          class="px-6 py-2 rounded-xl text-white font-medium flex items-center gap-2"
-          style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);">
-          <Printer :size="15" /> Cetak Struk
-        </button>
-        <a :href="route('rentals.show', rental.id)"
-          class="px-6 py-2 rounded-xl font-medium flex items-center gap-2"
-          style="background:#1a1a26; border:1px solid #2a2a3a; color:#94a3b8; text-decoration:none;">
-          <ArrowLeft :size="15" /> Kembali
-        </a>
+  store_name: string
+}>()
+
+function formatCurrency(v: number) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v)
+}
+function formatDt(d: string) {
+  return new Date(d).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+function methodLabel(m: string) {
+  return { cash: 'Cash', qris: 'QRIS', transfer: 'Transfer', debit: 'Debit' }[m] ?? m
+}
+</script>
+
+<template>
+  <div class="receipt-container">
+    <div class="no-print mb-4 flex gap-2">
+      <button @click="printPage"
+        class="px-6 py-2 rounded-xl text-white font-medium flex items-center gap-2"
+        style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);">
+        <Printer :size="15" /> Cetak Struk
+      </button>
+      <a :href="route('rentals.show', rental.id)"
+        class="px-6 py-2 rounded-xl font-medium flex items-center gap-2"
+        style="background:#1a1a26; border:1px solid #2a2a3a; color:#94a3b8; text-decoration:none;">
+        <ArrowLeft :size="15" /> Kembali
+      </a>
+    </div>
+
+    <div class="receipt-paper">
+      <!-- Header -->
+      <div class="receipt-header">
+        <h1>{{ store_name }}</h1>
+        <p>Gaming Lounge & PS Cafe</p>
+        <div class="receipt-divider">================================</div>
       </div>
-  
-      <div class="receipt-paper">
-        <!-- Header -->
-        <div class="receipt-header">
-          <h1>{{ store_name }}</h1>
-          <p>Gaming Lounge & PS Cafe</p>
-          <div class="receipt-divider">================================</div>
-        </div>
-  
-        <!-- Info -->
-        <table class="receipt-table">
-          <tr><td>No. Trx</td><td>: {{ rental.transaction_code }}</td></tr>
-          <tr><td>Customer</td><td>: {{ rental.customer_name }}</td></tr>
-          <tr><td>Console</td><td>: {{ rental.console.name }}</td></tr>
-          <tr><td>Operator</td><td>: {{ rental.employee.name }}</td></tr>
-          <tr><td>Tipe</td><td style="text-transform: capitalize;">: {{ rental.rental_type ? rental.rental_type.replace('_', ' ') : 'Open Time' }}</td></tr>
-          <tr><td>Mulai</td><td>: {{ formatDt(rental.started_at) }}</td></tr>
+
+      <!-- Info -->
+      <table class="receipt-table">
+        <tr><td>No. Trx</td><td>: {{ rental.transaction_code }}</td></tr>
+        <tr><td>Customer</td><td>: {{ rental.customer_name }}</td></tr>
+        <tr><td>Console</td><td>: {{ rental.console.name }}</td></tr>
+        <tr><td>Operator</td><td>: {{ rental.employee.name }}</td></tr>
+        <tr><td>Tipe</td><td style="text-transform: capitalize;">: {{ rental.rental_type ? rental.rental_type.replace('_', ' ') : 'Open Time' }}</td></tr>
+        <tr><td>Mulai</td><td>: {{ formatDt(rental.started_at) }}</td></tr>
         <tr><td>Selesai</td><td>: {{ formatDt(rental.ended_at) }}</td></tr>
       </table>
 
       <div class="receipt-divider">--------------------------------</div>
 
       <!-- FNB -->
-      <div v-if="rental.fnb_items.length">
+      <div v-if="rental.fnb_items && rental.fnb_items.length">
         <p class="receipt-section-title">PESANAN FNB</p>
-        <div v-for="fi in rental.fnb_items" :key="fi.fnb_item_name + fi.quantity" class="receipt-item">
-          <div class="receipt-item-name">{{ fi.fnb_item_name }} x{{ fi.quantity }}</div>
-          <div v-for="ad in fi.addons" :key="ad.name" class="receipt-addon">
+        <div v-for="(fi, idx) in rental.fnb_items" :key="idx" class="receipt-item">
+          <div class="receipt-item-name">{{ fi.fnb_item?.name || fi.fnb_item_name || 'Item F&B' }} x{{ fi.qty ?? fi.quantity ?? 1 }}</div>
+          <div v-for="ad in (fi.addons || [])" :key="ad.name" class="receipt-addon">
             + {{ ad.name }}
           </div>
           <div class="receipt-item-price">{{ formatCurrency(fi.subtotal) }}</div>

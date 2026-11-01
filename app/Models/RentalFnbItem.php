@@ -14,12 +14,19 @@ class RentalFnbItem extends Model
 
     protected $fillable = ['rental_id', 'fnb_item_id', 'qty', 'unit_price', 'subtotal', 'addons', 'addons_price'];
 
+    protected $appends = ['fnb_item_name'];
+
     protected $casts = [
         'unit_price'   => 'decimal:2',
         'subtotal'     => 'decimal:2',
         'addons_price' => 'decimal:2',
         'addons'       => 'array',
     ];
+
+    public function getFnbItemNameAttribute(): string
+    {
+        return $this->fnbItem ? $this->fnbItem->name : 'Item F&B';
+    }
 
     public function rental(): BelongsTo
     {

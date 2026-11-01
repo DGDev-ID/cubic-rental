@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
-import { Timer, Gamepad2, Play, CalendarClock, Search } from 'lucide-vue-next'
+import { Timer, Play, CalendarClock, Search, CheckCircle2 } from 'lucide-vue-next'
 
 interface Console { id: number; name: string; type: string; price_per_hour: number }
 interface Employee { id: number; name: string }
@@ -22,6 +22,8 @@ const form = useForm({
   employee_id: null as number | null,
   duration_hours: null as number | null,
   notes: '',
+  pay_upfront: false,
+  payment_method: 'cash',
 })
 
 const selectedConsole = computed(() => props.consoles.find(c => c.id === form.console_id))
@@ -73,13 +75,16 @@ const typeColors: Record<string, string> = {
       <form @submit.prevent="submit">
         <div class="rounded-xl p-6 space-y-5" style="background-color:#1a1a26; border:1px solid #2a2a3a;">
 
-          <!-- Customer -->
+          <!-- Customer (opsional) -->
           <div>
-            <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Nama Customer *</label>
-            <input v-model="form.customer_name" required
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-medium" style="color:#94a3b8;">Nama Customer (opsional)</label>
+              <span class="text-[11px]" style="color:#64748b;">Kosongkan jika tamu / anonym</span>
+            </div>
+            <input v-model="form.customer_name"
               class="w-full px-4 py-3 rounded-xl text-white outline-none transition-colors"
               style="background:#12121a; border:1px solid #2a2a3a; font-size:15px;"
-              placeholder="Nama customer..." />
+              placeholder="Nama customer (default: Customer)..." />
             <p v-if="form.errors.customer_name" class="text-red-400 text-xs mt-1">{{ form.errors.customer_name }}</p>
           </div>
 
@@ -187,7 +192,7 @@ const typeColors: Record<string, string> = {
                 :style="form.duration_hours === d
                   ? 'background:linear-gradient(135deg,#8b5cf6,#3b82f6); color:white;'
                   : 'background:#12121a; color:#94a3b8; border:1px solid #2a2a3a;'">
-                {{ d % 1 === 0 ? `${d}j` : `${d}j` }}
+                {{ d }}j
               </button>
               <input type="number" step="0.5" min="0.5" max="24"
                 v-model.number="form.duration_hours"
@@ -197,6 +202,45 @@ const typeColors: Record<string, string> = {
             </div>
             <p class="text-xs" style="color:#64748b;">Kosongkan untuk Open Time (meter jalan tanpa batas).</p>
             <p v-if="form.errors.duration_hours" class="text-red-400 text-xs mt-1">{{ form.errors.duration_hours }}</p>
+          </div>
+
+          <!-- Bayar di Awal (Prepaid) -->
+          <div v-if="form.duration_hours" class="rounded-xl p-4 transition-all"
+            :style="form.pay_upfront
+              ? 'background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.4);'
+              : 'background:#12121a; border:1px solid #2a2a3a;'">
+            <div class="flex items-center justify-between cursor-pointer" @click="form.pay_upfront = !form.pay_upfront">
+              <div class="flex items-center gap-3">
+                <input type="checkbox" v-model="form.pay_upfront" class="w-4 h-4 rounded text-emerald-500 focus:ring-0 focus:outline-none cursor-pointer" />
+                <div>
+                  <span class="text-sm font-semibold text-white flex items-center gap-1.5">
+                    <CheckCircle2 v-if="form.pay_upfront" :size="16" class="text-emerald-400" />
+                    Bayar di Awal (Prepaid / Lunas)
+                  </span>
+                  <p class="text-xs text-slate-400 mt-0.5">
+                    Console akan langsung tercatat lunas di Room Monitor dan bermain hingga selesai tanpa tagihan akhir.
+                  </p>
+                </div>
+              </div>
+              <span v-if="selectedConsole && form.duration_hours" class="text-sm font-bold text-emerald-400">
+                {{ formatCurrency(selectedConsole.price_per_hour * form.duration_hours) }}
+              </span>
+            </div>
+
+            <!-- Metode Pembayaran Awal -->
+            <div v-if="form.pay_upfront" class="mt-4 pt-3 border-t border-emerald-500/20">
+              <label class="block text-xs font-medium mb-2 text-slate-300">Pilih Metode Pembayaran Awal</label>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button v-for="m in ['cash', 'qris', 'transfer', 'debit']" :key="m" type="button"
+                  @click="form.payment_method = m"
+                  class="py-2 px-3 rounded-lg text-xs font-semibold uppercase transition-all"
+                  :style="form.payment_method === m
+                    ? 'background:linear-gradient(135deg,#10b981,#059669); color:white; border:1px solid #34d399;'
+                    : 'background:#1a1a26; color:#94a3b8; border:1px solid #2a2a3a;'">
+                  {{ m }}
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- Employee -->
@@ -223,7 +267,7 @@ const typeColors: Record<string, string> = {
           <!-- Summary -->
           <div v-if="selectedConsole" class="rounded-xl p-4" style="background:#12121a; border:1px solid rgba(139,92,246,.3);">
             <p class="text-xs font-medium mb-2" style="color:#94a3b8;">Ringkasan</p>
-            <div class="space-y-1 text-sm">
+            <div class="space-y-1.5 text-sm">
               <div class="flex justify-between">
                 <span style="color:#94a3b8;">Console</span>
                 <span class="text-white">{{ selectedConsole.name }}</span>
@@ -237,7 +281,7 @@ const typeColors: Record<string, string> = {
                 <span class="text-white">{{ form.duration_hours }} jam</span>
               </div>
               <div v-if="form.duration_hours" class="flex justify-between">
-                <span style="color:#94a3b8;">Estimasi</span>
+                <span style="color:#94a3b8;">Total Biaya Rental</span>
                 <span class="font-bold" style="color:#22d3ee;">
                   {{ formatCurrency(selectedConsole.price_per_hour * form.duration_hours) }}
                 </span>
@@ -246,11 +290,15 @@ const typeColors: Record<string, string> = {
                 <span style="color:#94a3b8;">Tipe</span>
                 <span class="text-white">Open Time (meter jalan)</span>
               </div>
+              <div v-if="form.pay_upfront && form.duration_hours" class="flex justify-between pt-1.5 border-t border-slate-700/50">
+                <span class="text-emerald-400 font-medium">Status Pembayaran</span>
+                <span class="font-bold text-emerald-400">Bayar di Awal ({{ form.payment_method.toUpperCase() }})</span>
+              </div>
             </div>
           </div>
 
           <button type="submit" :disabled="form.processing"
-            class="w-full py-4 rounded-xl text-white font-semibold text-base transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+            class="w-full py-4 rounded-xl text-white font-semibold text-base transition-all disabled:opacity-60 flex items-center justify-center gap-2 hover:opacity-90"
             style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);">
             <Play :size="16" /> Mulai Rental
           </button>

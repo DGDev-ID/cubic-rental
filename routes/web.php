@@ -18,6 +18,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/active-rentals', [DashboardController::class, 'activeRentals'])->name('dashboard.active-rentals');
+    Route::get('/dashboard/monitor-data', [DashboardController::class, 'monitorData'])->name('dashboard.monitor-data');
     Route::get('/room-monitor', [DashboardController::class, 'roomMonitor'])->name('room-monitor');
 
     // Employees
@@ -49,6 +50,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/rentals/{rental}/add-fnb', [RentalController::class, 'addFnb'])->name('rentals.add-fnb');
     Route::delete('/rentals/{rental}/fnb/{fnbItem}', [RentalController::class, 'removeFnb'])->name('rentals.remove-fnb');
     Route::post('/rentals/{rental}/finish', [RentalController::class, 'finish'])->name('rentals.finish');
+    Route::post('/rentals/{rental}/switch-console', [RentalController::class, 'switchConsole'])->name('rentals.switch-console');
+    Route::patch('/rentals/{rental}/notes', [RentalController::class, 'updateNotes'])->name('rentals.update-notes');
+    Route::post('/rentals/{rental}/resume-time', [RentalController::class, 'resumeWithTime'])->name('rentals.resume-time');
     Route::get('/rentals/{rental}/payment', [RentalController::class, 'payment'])->name('rentals.payment');
     Route::post('/rentals/{rental}/pay', [RentalController::class, 'pay'])->name('rentals.pay');
     Route::get('/rentals/{rental}/receipt', [RentalController::class, 'receipt'])->name('rentals.receipt');

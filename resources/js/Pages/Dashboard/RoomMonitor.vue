@@ -2,9 +2,10 @@
 import AppLayout from '@/Layouts/AppLayout.vue'
 import ActiveRoomMonitor from '@/Components/ActiveRoomMonitor.vue'
 
-const props = defineProps<{
+defineProps<{
   activeRentals: any[]
   finishedRentals: any[]
+  availableConsoles?: any[]
 }>()
 </script>
 
@@ -22,6 +23,10 @@ const props = defineProps<{
       </div>
     </template>
 
-    <ActiveRoomMonitor :initial-rentals="activeRentals" :finished-rentals="finishedRentals" />
+    <ActiveRoomMonitor
+      :initial-rentals="activeRentals"
+      :finished-rentals="finishedRentals"
+      :initial-available-consoles="availableConsoles"
+    />
   </AppLayout>
 </template>

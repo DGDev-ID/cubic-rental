@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Console;
 use App\Services\DashboardService;
 use App\Services\RentalService;
 use Inertia\Inertia;
@@ -28,11 +29,21 @@ class DashboardController extends Controller
         return response()->json($this->rentalService->getActiveRentals());
     }
 
+    public function monitorData()
+    {
+        return response()->json([
+            'activeRentals'     => $this->rentalService->getActiveRentals(),
+            'finishedRentals'   => $this->rentalService->getFinishedUnpaidRentals(),
+            'availableConsoles' => Console::where('status', 'available')->orderBy('name')->get(),
+        ]);
+    }
+
     public function roomMonitor(): Response
     {
         return Inertia::render('Dashboard/RoomMonitor', [
-            'activeRentals'   => $this->rentalService->getActiveRentals(),
-            'finishedRentals' => $this->rentalService->getFinishedUnpaidRentals(),
+            'activeRentals'     => $this->rentalService->getActiveRentals(),
+            'finishedRentals'   => $this->rentalService->getFinishedUnpaidRentals(),
+            'availableConsoles' => Console::where('status', 'available')->orderBy('name')->get(),
         ]);
     }
 }

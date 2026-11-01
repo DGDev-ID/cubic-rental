@@ -13,6 +13,8 @@ const mobileOpen = ref(false)
 const expandedGroups = ref<Set<string>>(new Set())
 
 const user = computed(() => page.props.auth?.user)
+const overtimeCount = computed(() => (page.props as any).overtime_count || 0)
+const pendingPaymentCount = computed(() => (page.props as any).pending_payment_count ?? (page.props as any).finished_unpaid_count ?? 0)
 
 const navItems = [
   { label: 'Dashboard',     route: 'dashboard',            icon: HomeIcon, isStandalone: true },
@@ -129,15 +131,40 @@ function isGroupActive(children: any[]): boolean {
           :key="item.route"
           :href="route(item.route)"
           :class="[
-            'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group',
+            'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative',
             isActive(item.route) ? 'text-white' : 'hover:text-white'
           ]"
           :style="isActive(item.route)
             ? 'background: linear-gradient(135deg,rgba(139,92,246,.25),rgba(59,130,246,.15)); border:1px solid rgba(139,92,246,.4); color:#a78bfa;'
             : 'color:#94a3b8; border:1px solid transparent;'"
         >
-          <component :is="item.icon" class="w-5 h-5 shrink-0" />
-          <span v-if="sidebarOpen" class="text-sm font-medium truncate">{{ item.label }}</span>
+          <div class="relative shrink-0">
+            <component :is="item.icon" class="w-5 h-5" />
+            <!-- Dot when sidebar closed -->
+            <span v-if="!sidebarOpen && item.route === 'room-monitor' && overtimeCount > 0"
+              class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse border-2 border-[#12121a]"
+              title="Overtime" />
+            <span v-else-if="!sidebarOpen && item.route === 'room-monitor' && pendingPaymentCount > 0"
+              class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-[#12121a]"
+              title="Menunggu Pembayaran" />
+          </div>
+          <span v-if="sidebarOpen" class="text-sm font-medium truncate flex-1">{{ item.label }}</span>
+          
+          <!-- Badges when sidebar open: Merah untuk Overtime, Kuning untuk Menunggu Pembayaran -->
+          <div v-if="sidebarOpen && item.route === 'room-monitor'" class="flex items-center gap-1.5 shrink-0">
+            <!-- Badge Merah: Overtime -->
+            <span v-if="overtimeCount > 0"
+              class="px-2 py-0.5 rounded-full text-xs font-black text-white bg-red-600 animate-pulse shadow-md shadow-red-500/50"
+              title="Console Waktu Tetap Overtime">
+              {{ overtimeCount }}
+            </span>
+            <!-- Badge Kuning: Menunggu Pembayaran -->
+            <span v-if="pendingPaymentCount > 0"
+              class="px-2 py-0.5 rounded-full text-xs font-bold text-black bg-amber-400 shadow-md shadow-amber-400/40"
+              title="Menunggu Pembayaran">
+              {{ pendingPaymentCount }}
+            </span>
+          </div>
         </Link>
 
         <!-- Separator -->

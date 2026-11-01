@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import GamingModal from '@/Components/GamingModal.vue'
-import { CalendarDays, Plus, Pencil, Trash2, ArrowRightCircle, Phone } from 'lucide-vue-next'
+import { CalendarDays, Plus, Pencil, Trash2, ArrowRightCircle, Phone, Clock } from 'lucide-vue-next'
 
 interface Console  { id: number; name: string; type: string; price_per_hour: number }
 interface Employee { id: number; name: string }
@@ -26,9 +26,27 @@ const props = defineProps<{
 function formatCurrency(v: number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v)
 }
+
 function formatDateTime(d: string) {
-  const dt = d.endsWith('Z') ? d.slice(0, -1) : d;
-  return new Date(dt).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  if (!d) return '-'
+  return new Date(d).toLocaleString('id-ID', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  })
+}
+
+function formatToLocalInput(d: string | null) {
+  const dateObj = d ? new Date(d) : new Date()
+  const y = dateObj.getFullYear()
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0')
+  const day = String(dateObj.getDate()).padStart(2, '0')
+  const h = d ? String(dateObj.getHours()).padStart(2, '0') : '10'
+  const min = d ? String(dateObj.getMinutes()).padStart(2, '0') : '00'
+  return {
+    date: `${y}-${m}-${day}`,
+    time: `${h}:${min}`,
+    datetime: `${y}-${m}-${day}T${h}:${min}`
+  }
 }
 
 // Status config
@@ -46,6 +64,22 @@ function applyFilter() {
   router.get(route('reservations.index'), { date: filterDate.value, status: filterStatus.value }, { preserveState: true })
 }
 
+const timeError = ref('')
+
+function validateOperatingHours(datetimeStr: string): boolean {
+  if (!datetimeStr) return true
+  const time = datetimeStr.split('T')[1] || ''
+  if (!time) return true
+  const [h, m] = time.split(':').map(Number)
+  const totalMin = h * 60 + (m || 0)
+  if (totalMin < 600 || totalMin > 1320) {
+    timeError.value = 'Waktu reservasi harus antara jam 10:00 s/d 22:00 (Jam operasional).'
+    return false
+  }
+  timeError.value = ''
+  return true
+}
+
 // Add modal
 const showAdd = ref(false)
 const addForm = useForm({
@@ -57,7 +91,17 @@ const addForm = useForm({
   duration_hours: '' as string | number,
   notes: '',
 })
+
+function openAdd() {
+  const init = formatToLocalInput(null)
+  addForm.reset()
+  addForm.reserved_at = init.datetime
+  timeError.value = ''
+  showAdd.value = true
+}
+
 function submitAdd() {
+  if (!validateOperatingHours(addForm.reserved_at)) return
   addForm.post(route('reservations.store'), {
     onSuccess: () => { showAdd.value = false; addForm.reset() },
   })
@@ -76,20 +120,23 @@ const editForm = useForm({
   notes: '',
   status: 'pending' as string,
 })
+
 function openEdit(r: Reservation) {
   editForm.id           = r.id
   editForm.console_id   = r.console_id
   editForm.employee_id  = r.employee_id
   editForm.customer_name = r.customer_name
   editForm.customer_phone = r.customer_phone ?? ''
-  // format datetime-local input value
-  editForm.reserved_at  = r.reserved_at.slice(0, 16)
+  editForm.reserved_at  = formatToLocalInput(r.reserved_at).datetime
   editForm.duration_hours = r.duration_hours ?? ''
   editForm.notes        = r.notes ?? ''
   editForm.status       = r.status
+  timeError.value = ''
   showEdit.value = true
 }
+
 function submitEdit() {
+  if (!validateOperatingHours(editForm.reserved_at)) return
   editForm.put(route('reservations.update', editForm.id), {
     onSuccess: () => { showEdit.value = false },
   })
@@ -118,24 +165,30 @@ const durationChips = [0.5, 1, 1.5, 2, 3, 4]
 
 function updateAddDate(e: Event) {
   const date = (e.target as HTMLInputElement).value
-  const time = addForm.reserved_at?.split('T')[1] || '00:00'
+  const time = addForm.reserved_at?.split('T')[1] || '10:00'
   addForm.reserved_at = date + 'T' + time
+  validateOperatingHours(addForm.reserved_at)
 }
+
 function updateAddTime(e: Event) {
   const time = (e.target as HTMLInputElement).value
-  const date = addForm.reserved_at?.split('T')[0] || new Date().toISOString().split('T')[0]
+  const date = addForm.reserved_at?.split('T')[0] || formatToLocalInput(null).date
   addForm.reserved_at = date + 'T' + time
+  validateOperatingHours(addForm.reserved_at)
 }
 
 function updateEditDate(e: Event) {
   const date = (e.target as HTMLInputElement).value
-  const time = editForm.reserved_at?.split('T')[1] || '00:00'
+  const time = editForm.reserved_at?.split('T')[1] || '10:00'
   editForm.reserved_at = date + 'T' + time
+  validateOperatingHours(editForm.reserved_at)
 }
+
 function updateEditTime(e: Event) {
   const time = (e.target as HTMLInputElement).value
-  const date = editForm.reserved_at?.split('T')[0] || new Date().toISOString().split('T')[0]
+  const date = editForm.reserved_at?.split('T')[0] || formatToLocalInput(null).date
   editForm.reserved_at = date + 'T' + time
+  validateOperatingHours(editForm.reserved_at)
 }
 
 // Price helpers
@@ -166,8 +219,8 @@ function editEstimated() {
       </div>
     </template>
     <template #header-actions>
-      <button @click="showAdd = true"
-        class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
+      <button @click="openAdd"
+        class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-all hover:opacity-90"
         style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">
         <Plus :size="16" /> Tambah Reservasi
       </button>
@@ -216,7 +269,7 @@ function editEstimated() {
           <tr v-for="r in reservations" :key="r.id"
             class="border-b transition-colors hover:bg-white/5"
             style="border-color:#2a2a3a;">
-            <td class="px-4 py-3 text-white">{{ formatDateTime(r.reserved_at) }}</td>
+            <td class="px-4 py-3 text-white font-medium">{{ formatDateTime(r.reserved_at) }}</td>
             <td class="px-4 py-3">
               <p class="text-white font-medium">{{ r.customer_name }}</p>
               <p v-if="r.customer_phone" class="text-xs flex items-center gap-1 mt-0.5" style="color:#94a3b8;">
@@ -250,7 +303,7 @@ function editEstimated() {
                 <button v-if="r.status !== 'converted' && r.status !== 'cancelled'"
                   @click="confirmConvert = r"
                   title="Mulai Rental"
-                  class="p-1.5 rounded-lg transition-colors"
+                  class="p-1.5 rounded-lg transition-colors hover:opacity-80"
                   style="background:rgba(139,92,246,.15); color:#a78bfa; border:1px solid rgba(139,92,246,.3);">
                   <ArrowRightCircle :size="14" />
                 </button>
@@ -258,7 +311,7 @@ function editEstimated() {
                 <button v-if="r.status !== 'converted'"
                   @click="openEdit(r)"
                   title="Edit"
-                  class="p-1.5 rounded-lg transition-colors"
+                  class="p-1.5 rounded-lg transition-colors hover:opacity-80"
                   style="background:rgba(59,130,246,.15); color:#60a5fa; border:1px solid rgba(59,130,246,.3);">
                   <Pencil :size="14" />
                 </button>
@@ -266,7 +319,7 @@ function editEstimated() {
                 <button v-if="r.status !== 'converted'"
                   @click="confirmDelete = r.id"
                   title="Hapus"
-                  class="p-1.5 rounded-lg transition-colors"
+                  class="p-1.5 rounded-lg transition-colors hover:opacity-80"
                   style="background:rgba(239,68,68,.1); color:#f87171; border:1px solid rgba(239,68,68,.3);">
                   <Trash2 :size="14" />
                 </button>
@@ -329,21 +382,24 @@ function editEstimated() {
                 type="date" required
                 class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
                 style="background:#12121a; border:1px solid #2a2a3a;" />
-              <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" fill="none" stroke="white" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
             </div>
             <div class="relative">
-              <input :value="addForm.reserved_at ? addForm.reserved_at.split('T')[1] : ''" 
+              <input :value="addForm.reserved_at ? addForm.reserved_at.split('T')[1] : '10:00'" 
                 @input="updateAddTime"
                 type="time"
+                min="10:00"
+                max="22:00"
+                required
                 class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
                 style="background:#12121a; border:1px solid #2a2a3a;" />
-              <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" fill="none" stroke="white" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
             </div>
           </div>
+          <div class="flex items-center gap-1.5 mt-1 text-[11px]" style="color:#a78bfa;">
+            <Clock :size="12" />
+            <span>Jam buka & tutup: <strong>10:00 - 22:00</strong></span>
+          </div>
+          <p v-if="timeError" class="text-red-400 text-xs mt-1">{{ timeError }}</p>
+          <p v-if="addForm.errors.reserved_at" class="text-red-400 text-xs mt-1">{{ addForm.errors.reserved_at }}</p>
         </div>
         <div>
           <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Durasi (opsional)</label>
@@ -427,21 +483,24 @@ function editEstimated() {
                 type="date" required
                 class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
                 style="background:#12121a; border:1px solid #2a2a3a;" />
-              <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" fill="none" stroke="white" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
             </div>
             <div class="relative">
-              <input :value="editForm.reserved_at ? editForm.reserved_at.split('T')[1] : ''" 
+              <input :value="editForm.reserved_at ? editForm.reserved_at.split('T')[1] : '10:00'" 
                 @input="updateEditTime"
                 type="time"
+                min="10:00"
+                max="22:00"
+                required
                 class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
                 style="background:#12121a; border:1px solid #2a2a3a;" />
-              <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" fill="none" stroke="white" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
             </div>
           </div>
+          <div class="flex items-center gap-1.5 mt-1 text-[11px]" style="color:#a78bfa;">
+            <Clock :size="12" />
+            <span>Jam buka & tutup: <strong>10:00 - 22:00</strong></span>
+          </div>
+          <p v-if="timeError" class="text-red-400 text-xs mt-1">{{ timeError }}</p>
+          <p v-if="editForm.errors.reserved_at" class="text-red-400 text-xs mt-1">{{ editForm.errors.reserved_at }}</p>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>

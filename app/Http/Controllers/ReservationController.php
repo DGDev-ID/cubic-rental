@@ -6,6 +6,7 @@ use App\Models\Reservation;
 use App\Models\Console;
 use App\Models\Employee;
 use App\Services\RentalService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -50,6 +51,12 @@ class ReservationController extends Controller
             'notes'          => 'nullable|string|max:500',
         ]);
 
+        $reservedAt = Carbon::parse($data['reserved_at']);
+        $timeInMinutes = ((int)$reservedAt->format('H')) * 60 + ((int)$reservedAt->format('i'));
+        if ($timeInMinutes < 600 || $timeInMinutes > 1320) {
+            return back()->withErrors(['reserved_at' => 'Waktu reservasi harus antara pukul 10:00 sampai 22:00 (jam operasional).']);
+        }
+
         Reservation::create($data + ['status' => 'pending']);
         return back()->with('success', 'Reservasi berhasil ditambahkan.');
     }
@@ -66,6 +73,12 @@ class ReservationController extends Controller
             'notes'          => 'nullable|string|max:500',
             'status'         => 'required|in:pending,confirmed,cancelled',
         ]);
+
+        $reservedAt = Carbon::parse($data['reserved_at']);
+        $timeInMinutes = ((int)$reservedAt->format('H')) * 60 + ((int)$reservedAt->format('i'));
+        if ($timeInMinutes < 600 || $timeInMinutes > 1320) {
+            return back()->withErrors(['reserved_at' => 'Waktu reservasi harus antara pukul 10:00 sampai 22:00 (jam operasional).']);
+        }
 
         $reservation->update($data);
         return back()->with('success', 'Reservasi berhasil diperbarui.');

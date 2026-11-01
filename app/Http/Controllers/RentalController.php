@@ -87,12 +87,51 @@ class RentalController extends Controller
     public function finish(Rental $rental): RedirectResponse
     {
         $this->rentalService->finish($rental);
+        $rental->refresh();
+        if ($rental->status === 'paid') {
+            return back()->with('success', 'Rental selesai dan tagihan sudah lunas.');
+        }
         return redirect()->route('rentals.payment', $rental)->with('success', 'Rental selesai. Lanjutkan pembayaran.');
+    }
+
+    public function switchConsole(Request $request, Rental $rental): RedirectResponse
+    {
+        $request->validate([
+            'new_console_id' => 'required|exists:consoles,id',
+        ]);
+
+        try {
+            $this->rentalService->switchConsole($rental, (int) $request->new_console_id);
+            return back()->with('success', 'Berhasil memindahkan console / ruangan.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function updateNotes(Request $request, Rental $rental): RedirectResponse
+    {
+        $request->validate([
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $this->rentalService->updateNotes($rental, $request->notes);
+        return back()->with('success', 'Catatan console berhasil diperbarui.');
+    }
+
+    public function resumeWithTime(Request $request, Rental $rental): RedirectResponse
+    {
+        $request->validate([
+            'added_minutes' => 'required|integer|min:10|max:1440',
+            'notes'         => 'nullable|string|max:255',
+        ]);
+
+        $this->rentalService->resumeWithTime($rental, $request->only(['added_minutes', 'notes']));
+        return back()->with('success', 'Waktu bermain berhasil ditambahkan. Console aktif kembali!');
     }
 
     public function payment(Rental $rental): Response
     {
-        $rental->load(['console', 'employee', 'fnbItems', 'extensions', 'payments']);
+        $rental->load(['console', 'employee', 'fnbItems.fnbItem', 'extensions', 'payments']);
         $paidAmount = $rental->payments->sum('amount');
         $total = $rental->total_amount ?? 0;
         return Inertia::render('Rentals/Payment', [
@@ -122,7 +161,7 @@ class RentalController extends Controller
 
     public function receipt(Rental $rental): Response
     {
-        $rental->load(['console', 'employee', 'fnbItems', 'extensions', 'payments']);
+        $rental->load(['console', 'employee', 'fnbItems.fnbItem', 'extensions', 'payments']);
         return Inertia::render('Rentals/Receipt', [
             'rental'     => $rental,
             'store_name' => config('app.name'),
