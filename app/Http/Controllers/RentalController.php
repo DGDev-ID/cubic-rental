@@ -55,10 +55,33 @@ class RentalController extends Controller
     public function show(Rental $rental): Response
     {
         $rental->load(['console', 'employee', 'fnbItems.fnbItem', 'extensions', 'payments']);
+
+        $now = \Carbon\Carbon::now();
+        $durationMinutes = $rental->started_at->diffInMinutes($now);
+
+        if ($rental->scheduled_end_at) {
+            $scheduledMinutes = $rental->started_at->diffInMinutes($rental->scheduled_end_at);
+            $estimatedRentalAmount = round((($rental->console->price_per_hour / 60) * $scheduledMinutes) / 1000) * 1000;
+        } else {
+            $billedMinutes = (int)(ceil(max($durationMinutes, 60) / 10) * 10);
+            $estimatedRentalAmount = round((($rental->console->price_per_hour / 60) * $billedMinutes) / 1000) * 1000;
+        }
+
+        $displayRentalAmount = $rental->rental_amount > 0 ? (float) $rental->rental_amount : (float) $estimatedRentalAmount;
+        $displayTotalAmount = $displayRentalAmount + (float) $rental->fnb_amount + (float) $rental->extra_amount;
+        $paidAmount = (float) $rental->payments->sum('amount');
+
+        $rentalData = array_merge($rental->toArray(), [
+            'rental_amount' => $displayRentalAmount,
+            'total_amount'  => $displayTotalAmount,
+            'paid_amount'   => $paidAmount,
+        ]);
+
         return Inertia::render('Rentals/Show', [
-            'rental'     => $rental,
-            'fnb_items'  => FnbItem::orderBy('category')->orderBy('name')->get(),
-            'fnb_addons' => FnbAddon::orderBy('name')->get(),
+            'rental'             => $rentalData,
+            'fnb_items'          => FnbItem::orderBy('category')->orderBy('name')->get(),
+            'fnb_addons'         => FnbAddon::orderBy('name')->get(),
+            'available_consoles' => Console::where('status', 'available')->orderBy('name')->get(),
         ]);
     }
 
@@ -116,6 +139,16 @@ class RentalController extends Controller
 
         $this->rentalService->updateNotes($rental, $request->notes);
         return back()->with('success', 'Catatan console berhasil diperbarui.');
+    }
+
+    public function destroy(Rental $rental): RedirectResponse
+    {
+        if ($rental->console && $rental->status === 'running') {
+            $rental->console->update(['status' => 'available']);
+        }
+        $rental->delete();
+
+        return back()->with('success', 'Data transaksi rental berhasil dihapus.');
     }
 
     public function resumeWithTime(Request $request, Rental $rental): RedirectResponse

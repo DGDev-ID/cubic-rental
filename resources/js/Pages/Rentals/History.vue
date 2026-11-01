@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { router } from '@inertiajs/vue3'
+import { router, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
-import { Download, TrendingUp, Users, BarChart2, ChevronLeft, ChevronRight, Filter, X, Calendar } from 'lucide-vue-next'
+import GamingModal from '@/Components/GamingModal.vue'
+import { Download, TrendingUp, Users, BarChart2, ChevronLeft, ChevronRight, Filter, X, Calendar, StickyNote, Trash2 } from 'lucide-vue-next'
 
 interface RentalRow {
   id: number; transaction_code: string; customer_name: string; rental_type: string;
   status: string; started_at: string; ended_at: string | null; total_amount: number;
+  notes?: string | null;
   console: { name: string; type: string }
   employee: { name: string }
   payments: { method: string; amount: number }[]
@@ -211,6 +213,107 @@ const statusColor: Record<string, string> = {
 const typeColors: Record<string, string> = { regular: '#60a5fa', vip: '#a78bfa', vvip: '#22d3ee', suite: '#fbbf24' }
 
 const detail = ref<RentalRow | null>(null)
+
+// Modals: Edit Catatan & Hapus Transaksi
+const showNotesModal = ref(false)
+const showDeleteModal = ref(false)
+const targetType = ref<'rental' | 'fnb'>('rental')
+const editingRental = ref<RentalRow | null>(null)
+const editingFnb = ref<any | null>(null)
+const deletingRental = ref<RentalRow | null>(null)
+const deletingFnb = ref<any | null>(null)
+const isDeleting = ref(false)
+
+const notesForm = useForm({
+  notes: '',
+})
+
+function openEditNotesRental(r: RentalRow) {
+  targetType.value = 'rental'
+  editingRental.value = r
+  editingFnb.value = null
+  notesForm.notes = r.notes || ''
+  showNotesModal.value = true
+}
+
+function openEditNotesFnb(r: any) {
+  targetType.value = 'fnb'
+  editingFnb.value = r
+  editingRental.value = null
+  notesForm.notes = r.notes || ''
+  showNotesModal.value = true
+}
+
+function saveNotes() {
+  if (targetType.value === 'rental' && editingRental.value) {
+    notesForm.patch(route('rentals.update-notes', editingRental.value.id), {
+      preserveScroll: true,
+      onSuccess: () => {
+        if (editingRental.value) {
+          editingRental.value.notes = notesForm.notes
+        }
+        if (detail.value && detail.value.id === editingRental.value?.id) {
+          detail.value.notes = notesForm.notes
+        }
+        showNotesModal.value = false
+      }
+    })
+  } else if (targetType.value === 'fnb' && editingFnb.value) {
+    notesForm.patch(route('fnb-orders.update-notes', editingFnb.value.id), {
+      preserveScroll: true,
+      onSuccess: () => {
+        if (editingFnb.value) {
+          editingFnb.value.notes = notesForm.notes
+        }
+        showNotesModal.value = false
+      }
+    })
+  }
+}
+
+function openDeleteRental(r: RentalRow) {
+  targetType.value = 'rental'
+  deletingRental.value = r
+  deletingFnb.value = null
+  showDeleteModal.value = true
+}
+
+function openDeleteFnb(r: any) {
+  targetType.value = 'fnb'
+  deletingFnb.value = r
+  deletingRental.value = null
+  showDeleteModal.value = true
+}
+
+function confirmDelete() {
+  isDeleting.value = true
+  if (targetType.value === 'rental' && deletingRental.value) {
+    router.delete(route('rentals.destroy', deletingRental.value.id), {
+      preserveScroll: true,
+      onSuccess: () => {
+        if (detail.value?.id === deletingRental.value?.id) {
+          detail.value = null
+        }
+        showDeleteModal.value = false
+        isDeleting.value = false
+      },
+      onError: () => {
+        isDeleting.value = false
+      }
+    })
+  } else if (targetType.value === 'fnb' && deletingFnb.value) {
+    router.delete(route('fnb-orders.destroy', deletingFnb.value.id), {
+      preserveScroll: true,
+      onSuccess: () => {
+        showDeleteModal.value = false
+        isDeleting.value = false
+      },
+      onError: () => {
+        isDeleting.value = false
+      }
+    })
+  }
+}
 </script>
 
 <template>
@@ -415,7 +518,13 @@ const detail = ref<RentalRow | null>(null)
             class="transition-colors" style="border-top:1px solid #1a1a26;"
             :style="{ background: r.id === detail?.id ? 'rgba(139,92,246,.1)' : '' }">
             <td class="px-4 py-3 font-mono text-xs" style="color:#94a3b8;">{{ r.transaction_code }}</td>
-            <td class="px-4 py-3 text-white">{{ r.customer_name }}</td>
+            <td class="px-4 py-3">
+              <span class="text-white">{{ r.customer_name }}</span>
+              <div v-if="r.notes" class="text-[11px] text-blue-400/90 truncate max-w-[180px] flex items-center gap-1 mt-0.5" :title="r.notes">
+                <StickyNote :size="11" class="shrink-0" />
+                <span class="truncate">{{ r.notes }}</span>
+              </div>
+            </td>
             <td class="px-4 py-3">
               <span class="text-white">{{ r.console?.name ?? '(dihapus)' }}</span>
               <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full" :style="`background:rgba(99,102,241,.15); color:${typeColors[r.console?.type ?? 'regular']}`">
@@ -430,17 +539,29 @@ const detail = ref<RentalRow | null>(null)
               </span>
             </td>
             <td class="px-4 py-3">
-              <div class="flex gap-2 justify-end">
+              <div class="flex items-center gap-1.5 justify-end">
                 <button @click="detail = detail?.id === r.id ? null : r"
-                  class="text-xs px-3 py-1.5 rounded-xl transition-all"
+                  class="text-xs px-2.5 py-1.5 rounded-lg transition-all"
                   style="background:rgba(139,92,246,.2); border:1px solid rgba(139,92,246,.3); color:#a78bfa;">
                   Detail
                 </button>
                 <a :href="route('rentals.receipt', r.id)"
-                  class="text-xs px-3 py-1.5 rounded-xl transition-all"
+                  class="text-xs px-2.5 py-1.5 rounded-lg transition-all"
                   style="background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.3); color:#22c55e; text-decoration:none;">
                   Struk
                 </a>
+                <button @click="openEditNotesRental(r)"
+                  class="text-xs p-1.5 rounded-lg transition-all hover:bg-blue-500/25"
+                  style="background:rgba(59,130,246,.15); border:1px solid rgba(59,130,246,.3); color:#60a5fa;"
+                  title="Edit Catatan">
+                  <StickyNote :size="14" />
+                </button>
+                <button @click="openDeleteRental(r)"
+                  class="text-xs p-1.5 rounded-lg transition-all hover:bg-red-500/25 text-red-400"
+                  style="background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.3);"
+                  title="Hapus Transaksi">
+                  <Trash2 :size="14" />
+                </button>
               </div>
             </td>
           </tr>
@@ -469,7 +590,13 @@ const detail = ref<RentalRow | null>(null)
           <tr v-for="r in fnb_orders.data" :key="r.id"
             class="transition-colors" style="border-top:1px solid #1a1a26;">
             <td class="px-4 py-3 font-mono text-xs" style="color:#94a3b8;">{{ r.code }}</td>
-            <td class="px-4 py-3 text-white">{{ r.customer_name || '-' }}</td>
+            <td class="px-4 py-3">
+              <span class="text-white">{{ r.customer_name || '-' }}</span>
+              <div v-if="r.notes" class="text-[11px] text-emerald-400/90 truncate max-w-[180px] flex items-center gap-1 mt-0.5" :title="r.notes">
+                <StickyNote :size="11" class="shrink-0" />
+                <span class="truncate">{{ r.notes }}</span>
+              </div>
+            </td>
             <td class="px-4 py-3 text-white">{{ r.console?.name || '-' }}</td>
             <td class="px-4 py-3 text-xs" style="color:#94a3b8;">{{ formatDt(r.paid_at) }}</td>
             <td class="px-4 py-3 font-semibold" style="color:#10b981;">{{ formatCurrency(r.total_amount) }}</td>
@@ -478,7 +605,22 @@ const detail = ref<RentalRow | null>(null)
                 Lunas
               </span>
             </td>
-            <td class="px-4 py-3"></td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-1.5 justify-end">
+                <button @click="openEditNotesFnb(r)"
+                  class="text-xs p-1.5 rounded-lg transition-all hover:bg-blue-500/25"
+                  style="background:rgba(59,130,246,.15); border:1px solid rgba(59,130,246,.3); color:#60a5fa;"
+                  title="Edit Catatan">
+                  <StickyNote :size="14" />
+                </button>
+                <button @click="openDeleteFnb(r)"
+                  class="text-xs p-1.5 rounded-lg transition-all hover:bg-red-500/25 text-red-400"
+                  style="background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.3);"
+                  title="Hapus Transaksi">
+                  <Trash2 :size="14" />
+                </button>
+              </div>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -510,12 +652,30 @@ const detail = ref<RentalRow | null>(null)
 
     <!-- Detail Drawer -->
     <div v-if="detail" class="mt-4 rounded-xl p-5" style="background:#1a1a26; border:1px solid rgba(139,92,246,.3);">
-      <h3 class="text-sm font-semibold text-white mb-3">Detail – {{ detail.transaction_code }}</h3>
+      <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+        <h3 class="text-sm font-semibold text-white">Detail Transaksi – {{ detail.transaction_code }}</h3>
+        <div class="flex items-center gap-2">
+          <button @click="openEditNotesRental(detail)"
+            class="text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 text-blue-400 bg-blue-500/15 border border-blue-500/30 hover:bg-blue-500/25 transition-colors">
+            <StickyNote :size="13" /> Edit Catatan
+          </button>
+          <button @click="openDeleteRental(detail)"
+            class="text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 text-red-400 bg-red-500/15 border border-red-500/30 hover:bg-red-500/25 transition-colors">
+            <Trash2 :size="13" /> Hapus Transaksi
+          </button>
+        </div>
+      </div>
       <div class="grid grid-cols-2 gap-y-2 text-sm">
         <div><span style="color:#94a3b8;">Operator</span><p class="text-white">{{ detail.employee?.name ?? '(dihapus)' }}</p></div>
         <div><span style="color:#94a3b8;">Tipe</span><p class="text-white capitalize">{{ detail.rental_type.replace('_', ' ') }}</p></div>
         <div><span style="color:#94a3b8;">Mulai</span><p class="text-white">{{ formatDt(detail.started_at) }}</p></div>
         <div><span style="color:#94a3b8;">Selesai</span><p class="text-white">{{ formatDt(detail.ended_at) }}</p></div>
+        <div class="col-span-2">
+          <span style="color:#94a3b8;">Catatan</span>
+          <p class="text-white text-xs mt-1 bg-black/30 p-2.5 rounded-lg border border-slate-800">
+            {{ detail.notes || 'Tidak ada catatan' }}
+          </p>
+        </div>
         <div class="col-span-2 mt-2">
           <span style="color:#94a3b8;">Pembayaran</span>
           <div class="flex flex-wrap gap-2 mt-1">
@@ -529,6 +689,55 @@ const detail = ref<RentalRow | null>(null)
       </div>
     </div>
   </AppLayout>
+
+  <!-- Edit Catatan Modal -->
+  <GamingModal :show="showNotesModal" :title="`Edit Catatan – ${targetType === 'rental' ? editingRental?.transaction_code : editingFnb?.code}`" @close="showNotesModal = false">
+    <form @submit.prevent="saveNotes" class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium mb-1.5 text-slate-300">
+          Catatan Transaksi untuk <strong class="text-white">{{ targetType === 'rental' ? (editingRental?.customer_name || 'Customer') : (editingFnb?.customer_name || 'Customer') }}</strong>
+        </label>
+        <textarea v-model="notesForm.notes" rows="4"
+          class="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none resize-none"
+          style="background:#12121a; border:1px solid #2a2a3a;"
+          placeholder="Tuliskan catatan transaksi di sini..." />
+      </div>
+      <div class="flex gap-3 justify-end pt-1">
+        <button type="button" @click="showNotesModal = false"
+          class="px-4 py-2.5 rounded-xl text-sm" style="background:#2a2a3a; color:#e2e8f0;">
+          Batal
+        </button>
+        <button type="submit" :disabled="notesForm.processing"
+          class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+          style="background:linear-gradient(135deg,#3b82f6,#2563eb);">
+          Simpan Catatan
+        </button>
+      </div>
+    </form>
+  </GamingModal>
+
+  <!-- Hapus Transaksi Modal -->
+  <GamingModal :show="showDeleteModal" title="Hapus Riwayat Transaksi?" @close="showDeleteModal = false">
+    <div class="space-y-4">
+      <p class="text-sm" style="color:#94a3b8;">
+        Apakah Anda yakin ingin menghapus data transaksi
+        <strong class="text-white">{{ targetType === 'rental' ? deletingRental?.transaction_code : deletingFnb?.code }}</strong>?
+        Data transaksi akan dihapus dari riwayat.
+      </p>
+
+      <div class="flex gap-3 pt-2">
+        <button type="button" @click="showDeleteModal = false"
+          class="flex-1 py-2.5 rounded-xl text-sm" style="background:#12121a; border:1px solid #2a2a3a; color:#94a3b8;">
+          Batal
+        </button>
+        <button type="button" @click="confirmDelete" :disabled="isDeleting"
+          class="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-60 flex items-center justify-center gap-1.5"
+          style="background:linear-gradient(135deg,#ef4444,#dc2626);">
+          <Trash2 :size="15" /> Ya, Hapus
+        </button>
+      </div>
+    </div>
+  </GamingModal>
 
   <!-- Export Modal -->
   <Teleport to="body">

@@ -213,7 +213,7 @@ function openResume(rental: FinishedRental) {
 const resumeEstimatedPrice = computed(() => {
   if (!showResumeModal.value || !showResumeModal.value.console) return 0
   const rate = showResumeModal.value.console.price_per_hour || 0
-  return Math.round((rate / 60) * resumeForm.added_minutes)
+  return Math.round(((rate / 60) * resumeForm.added_minutes) / 1000) * 1000
 })
 
 function submitResume() {
@@ -313,7 +313,8 @@ function submitResume() {
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         <div
           v-for="rental in rentals" :key="rental.id"
-          class="rounded-xl p-4 transition-all duration-300 flex flex-col justify-between"
+          @click="router.visit(route('rentals.show', rental.id))"
+          class="rounded-xl p-4 transition-all duration-300 flex flex-col justify-between cursor-pointer group hover:border-purple-500/70 hover:shadow-xl hover:shadow-purple-500/10"
           :style="getLiveStatus(rental) === 'overtime'
             ? 'background: linear-gradient(180deg, rgba(239,68,68,0.22) 0%, #1a1a26 40%); border: 2px solid #ef4444; box-shadow: 0 0 25px rgba(239,68,68,0.35);'
             : `background-color:#1a1a26; border:1px solid ${statusConfig[getLiveStatus(rental)].border};`"
@@ -322,7 +323,10 @@ function submitResume() {
             <!-- Row 1: Console + Status -->
             <div class="flex items-start justify-between gap-2 mb-3">
               <div>
-                <p class="font-bold text-white text-base leading-tight">{{ rental.console.name }}</p>
+                <div class="flex items-center gap-1.5">
+                  <p class="font-bold text-white text-base leading-tight group-hover:text-purple-300 transition-colors">{{ rental.console.name }}</p>
+                  <span class="text-[10px] text-slate-500 group-hover:text-purple-400 transition-colors">↗</span>
+                </div>
                 <span class="text-xs px-1.5 py-0.5 rounded mt-0.5 inline-block" style="background:rgba(139,92,246,.15); color:#a78bfa;">
                   {{ typeLabels[rental.console.type] ?? rental.console.type }}
                 </span>
@@ -371,12 +375,9 @@ function submitResume() {
             <!-- Catatan Console (jika ada) -->
             <div v-if="rental.notes" class="mb-3 px-3 py-2 rounded-lg text-xs"
               style="background:rgba(59,130,246,.1); border:1px dashed rgba(59,130,246,.3); color:#93c5fd;">
-              <div class="flex items-center justify-between mb-0.5">
-                <span class="font-semibold flex items-center gap-1 text-blue-400">
-                  <StickyNote :size="12" /> Catatan Room:
-                </span>
-                <button @click="openNotes(rental)" class="text-[11px] underline hover:text-white">Ubah</button>
-              </div>
+              <span class="font-semibold flex items-center gap-1 text-blue-400 mb-0.5">
+                <StickyNote :size="12" /> Catatan:
+              </span>
               <p class="text-slate-200 line-clamp-2">{{ rental.notes }}</p>
             </div>
 
@@ -443,36 +444,10 @@ function submitResume() {
             </p>
           </div>
 
-          <!-- Actions -->
-          <div class="space-y-2 pt-2 border-t border-[#2a2a3a]">
-            <!-- Action Bar Row 1: Fast Utilities -->
-            <div class="grid grid-cols-3 gap-1.5 text-xs">
-              <a :href="route('rentals.show', rental.id)"
-                class="text-center py-1.5 px-2 rounded-lg font-medium transition-colors hover:opacity-80 flex items-center justify-center gap-1"
-                style="background:rgba(59,130,246,.15); color:#60a5fa; border:1px solid rgba(59,130,246,.3);">
-                <span>+ FnB</span>
-              </a>
-
-              <button @click="openSwitch(rental)"
-                class="py-1.5 px-2 rounded-lg font-medium transition-colors hover:opacity-80 flex items-center justify-center gap-1"
-                style="background:rgba(168,85,247,.15); color:#c084fc; border:1px solid rgba(168,85,247,.3);"
-                title="Pindah Ruangan / Console">
-                <ArrowLeftRight :size="12" />
-                <span>Pindah</span>
-              </button>
-
-              <button @click="openNotes(rental)"
-                class="py-1.5 px-2 rounded-lg font-medium transition-colors hover:opacity-80 flex items-center justify-center gap-1"
-                style="background:rgba(234,179,8,.15); color:#facc15; border:1px solid rgba(234,179,8,.3);"
-                title="Catatan Console">
-                <StickyNote :size="12" />
-                <span>Catatan</span>
-              </button>
-            </div>
-
-            <!-- Action Bar Row 2: Selesai (Tetap ada untuk semua termasuk bayar di awal) -->
+          <!-- Actions: Hanya ada button Selesai -->
+          <div class="pt-2 border-t border-[#2a2a3a]">
             <button
-              @click="showFinishConfirm = rental"
+              @click.stop="showFinishConfirm = rental"
               class="w-full text-xs py-2.5 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 shadow-md hover:opacity-95"
               :style="getLiveStatus(rental) === 'overtime'
                 ? 'background:linear-gradient(135deg,#ef4444,#dc2626); color:white; box-shadow:0 4px 15px rgba(239,68,68,0.4);'

@@ -46,6 +46,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/rentals/history', [RentalController::class, 'history'])->name('rentals.history');
     Route::get('/rentals/history/export', [RentalController::class, 'exportExcel'])->name('rentals.export');
     Route::get('/rentals/{rental}', [RentalController::class, 'show'])->name('rentals.show');
+    Route::delete('/rentals/{rental}', [RentalController::class, 'destroy'])->name('rentals.destroy');
     Route::post('/rentals/{rental}/add-time', [RentalController::class, 'addTime'])->name('rentals.add-time');
     Route::post('/rentals/{rental}/add-fnb', [RentalController::class, 'addFnb'])->name('rentals.add-fnb');
     Route::delete('/rentals/{rental}/fnb/{fnbItem}', [RentalController::class, 'removeFnb'])->name('rentals.remove-fnb');
@@ -71,6 +72,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/fnb-orders', [FnbOrderController::class, 'index'])->name('fnb-orders.index');
     Route::post('/fnb-orders', [FnbOrderController::class, 'store'])->name('fnb-orders.store');
     Route::get('/fnb-orders/{fnbOrder}', [FnbOrderController::class, 'show'])->name('fnb-orders.show');
+    Route::patch('/fnb-orders/{fnbOrder}/notes', [FnbOrderController::class, 'updateNotes'])->name('fnb-orders.update-notes');
     Route::post('/fnb-orders/{fnbOrder}/pay', [FnbOrderController::class, 'pay'])->name('fnb-orders.pay');
     Route::delete('/fnb-orders/{fnbOrder}', [FnbOrderController::class, 'destroy'])->name('fnb-orders.destroy');
 

@@ -30,7 +30,7 @@ class RentalService
         $initialRentalAmount = 0;
 
         if ($isPayUpfront) {
-            $initialRentalAmount = round($console->price_per_hour * $durationHours);
+            $initialRentalAmount = round(($console->price_per_hour * $durationHours) / 1000) * 1000;
         }
 
         $rental = Rental::create([
@@ -97,7 +97,7 @@ class RentalService
     public function resumeWithTime(Rental $rental, array $data): RentalExtension
     {
         $addedMinutes = (int) $data['added_minutes'];
-        $additionalPrice = (float) round(($rental->console->price_per_hour / 60) * $addedMinutes);
+        $additionalPrice = (float) (round((($rental->console->price_per_hour / 60) * $addedMinutes) / 1000) * 1000);
 
         $extension = RentalExtension::create([
             'rental_id'        => $rental->id,
@@ -185,7 +185,7 @@ class RentalService
             $billedMinutes = (int)(ceil(max($minutes, 60) / 10) * 10);
         }
 
-        $rentalAmount = round(($rental->console->price_per_hour / 60) * $billedMinutes);
+        $rentalAmount = round((($rental->console->price_per_hour / 60) * $billedMinutes) / 1000) * 1000;
         $totalAmount  = $rentalAmount + $rental->fnb_amount + $rental->extra_amount;
         $paidAmount   = (float) $rental->payments()->sum('amount');
 
@@ -294,11 +294,11 @@ class RentalService
                     if ($rental->scheduled_end_at) {
                         // Fixed duration booking — price based on the scheduled duration
                         $scheduledMinutes = $rental->started_at->diffInMinutes($rental->scheduled_end_at);
-                        $currentRentalAmount = round(($rental->console->price_per_hour / 60) * $scheduledMinutes);
+                        $currentRentalAmount = round((($rental->console->price_per_hour / 60) * $scheduledMinutes) / 1000) * 1000;
                     } else {
                         // Pure open time — round up to nearest 10-min block (minimum 60 min)
                         $billedMinutes = (int)(ceil(max($durationMinutes, 60) / 10) * 10);
-                        $currentRentalAmount = round(($rental->console->price_per_hour / 60) * $billedMinutes);
+                        $currentRentalAmount = round((($rental->console->price_per_hour / 60) * $billedMinutes) / 1000) * 1000;
                     }
                 }
 

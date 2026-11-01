@@ -223,7 +223,7 @@ const typeColors: Record<string, string> = {
                 </div>
               </div>
               <span v-if="selectedConsole && form.duration_hours" class="text-sm font-bold text-emerald-400">
-                {{ formatCurrency(selectedConsole.price_per_hour * form.duration_hours) }}
+                {{ formatCurrency(Math.round((selectedConsole.price_per_hour * form.duration_hours) / 1000) * 1000) }}
               </span>
             </div>
 
@@ -283,7 +283,7 @@ const typeColors: Record<string, string> = {
               <div v-if="form.duration_hours" class="flex justify-between">
                 <span style="color:#94a3b8;">Total Biaya Rental</span>
                 <span class="font-bold" style="color:#22d3ee;">
-                  {{ formatCurrency(selectedConsole.price_per_hour * form.duration_hours) }}
+                  {{ formatCurrency(Math.round((selectedConsole.price_per_hour * form.duration_hours) / 1000) * 1000) }}
                 </span>
               </div>
               <div v-else class="flex justify-between">

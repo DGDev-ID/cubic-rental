@@ -122,12 +122,20 @@ class FnbOrderController extends Controller
             ->with('success', 'Pembayaran berhasil.');
     }
 
+    public function updateNotes(Request $request, FnbOrder $fnbOrder): RedirectResponse
+    {
+        $request->validate([
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $fnbOrder->update(['notes' => $request->notes]);
+
+        return back()->with('success', 'Catatan pesanan FnB berhasil diperbarui.');
+    }
+
     public function destroy(FnbOrder $fnbOrder): RedirectResponse
     {
-        if ($fnbOrder->status === 'paid') {
-            return back()->with('error', 'Order yang sudah dibayar tidak bisa dihapus.');
-        }
         $fnbOrder->delete();
-        return back()->with('success', 'Order dibatalkan.');
+        return back()->with('success', 'Transaksi FnB berhasil dihapus.');
     }
 }
