@@ -3,15 +3,18 @@ import { ref, computed, watch } from 'vue'
 import { router, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import GamingModal from '@/Components/GamingModal.vue'
-import { Download, TrendingUp, Users, BarChart2, ChevronLeft, ChevronRight, Filter, X, Calendar, StickyNote, Trash2, Gamepad2, UtensilsCrossed, RotateCcw } from 'lucide-vue-next'
+import { Download, TrendingUp, Users, BarChart2, ChevronLeft, ChevronRight, Filter, X, Calendar, StickyNote, Trash2, Gamepad2, UtensilsCrossed, RotateCcw, ExternalLink, Receipt, Clock } from 'lucide-vue-next'
 
 interface RentalRow {
   id: number; transaction_code: string; customer_name: string; rental_type: string;
   status: string; started_at: string; ended_at: string | null; total_amount: number;
+  rental_amount?: number; fnb_amount?: number; extra_amount?: number; paid_amount?: number;
   notes?: string | null;
-  console: { name: string; type: string }
+  console: { name: string; type: string; price_per_hour?: number }
   employee: { name: string }
-  payments: { method: string; amount: number }[]
+  payments: { method: string; amount: number; notes?: string }[]
+  fnb_items?: { id: number; qty: number; unit_price: number; subtotal: number; fnb_item?: { name: string } }[]
+  extensions?: { id: number; added_minutes: number; additional_price: number }[]
 }
 
 const props = defineProps<{
@@ -221,6 +224,16 @@ function formatDt(d: string | null) {
   return new Date(d).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+function formatDuration(start: string, end: string | null) {
+  if (!start) return '-'
+  const s = new Date(start).getTime()
+  const e = end ? new Date(end).getTime() : Date.now()
+  const diff = Math.max(0, Math.floor((e - s) / 60000))
+  const h = Math.floor(diff / 60)
+  const m = diff % 60
+  return h > 0 ? `${h} jam ${m} mnt` : `${m} mnt`
+}
+
 const availableYears = computed(() => {
   const years = props.yearly_stats.map(y => y.year)
   if (!years.length) return [new Date().getFullYear()]
@@ -235,7 +248,35 @@ const statusColor: Record<string, string> = {
 }
 const typeColors: Record<string, string> = { regular: '#60a5fa', vip: '#a78bfa', vvip: '#22d3ee', suite: '#fbbf24' }
 
+const statusLabels: Record<string, string> = {
+  running: 'Berlangsung', finished: 'Selesai', paid: 'Lunas', cancelled: 'Dibatalkan', half_paid: 'Bayar Sebagian',
+}
+const statusBadgeStyle: Record<string, string> = {
+  running: 'background:rgba(34,211,238,.15); color:#22d3ee; border:1px solid rgba(34,211,238,.3);',
+  finished: 'background:rgba(34,197,94,.15); color:#22c55e; border:1px solid rgba(34,197,94,.3);',
+  paid: 'background:rgba(167,139,250,.15); color:#a78bfa; border:1px solid rgba(167,139,250,.3);',
+  cancelled: 'background:rgba(239,68,68,.15); color:#ef4444; border:1px solid rgba(239,68,68,.3);',
+  half_paid: 'background:rgba(251,191,36,.15); color:#fbbf24; border:1px solid rgba(251,191,36,.3);',
+}
+
 const detail = ref<RentalRow | null>(null)
+
+// Detail Modals
+const showDetailModal = ref(false)
+const selectedDetail = ref<RentalRow | null>(null)
+
+const showFnbDetailModal = ref(false)
+const selectedFnbDetail = ref<any | null>(null)
+
+function openDetailRental(r: RentalRow) {
+  selectedDetail.value = r
+  showDetailModal.value = true
+}
+
+function openDetailFnb(r: any) {
+  selectedFnbDetail.value = r
+  showFnbDetailModal.value = true
+}
 
 // Modals: Edit Catatan & Hapus Transaksi
 const showNotesModal = ref(false)
@@ -646,7 +687,7 @@ function confirmDelete() {
             </td>
             <td class="px-4 py-3">
               <div class="flex items-center gap-1.5 justify-end">
-                <button @click="detail = detail?.id === r.id ? null : r"
+                <button @click="openDetailRental(r)"
                   class="text-xs px-2.5 py-1.5 rounded-lg transition-all"
                   style="background:rgba(139,92,246,.2); border:1px solid rgba(139,92,246,.3); color:#a78bfa;">
                   Detail
@@ -713,6 +754,11 @@ function confirmDelete() {
             </td>
             <td class="px-4 py-3">
               <div class="flex items-center gap-1.5 justify-end">
+                <button @click="openDetailFnb(r)"
+                  class="text-xs px-2.5 py-1.5 rounded-lg transition-all"
+                  style="background:rgba(139,92,246,.2); border:1px solid rgba(139,92,246,.3); color:#a78bfa;">
+                  Detail
+                </button>
                 <button @click="openEditNotesFnb(r)"
                   class="text-xs p-1.5 rounded-lg transition-all hover:bg-blue-500/25"
                   style="background:rgba(59,130,246,.15); border:1px solid rgba(59,130,246,.3); color:#60a5fa;"
@@ -756,45 +802,218 @@ function confirmDelete() {
       </template>
     </div>
 
-    <!-- Detail Drawer -->
-    <div v-if="detail" class="mt-4 rounded-xl p-5" style="background:#1a1a26; border:1px solid rgba(139,92,246,.3);">
-      <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
-        <h3 class="text-sm font-semibold text-white">Detail Transaksi – {{ detail.transaction_code }}</h3>
-        <div class="flex items-center gap-2">
-          <button @click="openEditNotesRental(detail)"
-            class="text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 text-blue-400 bg-blue-500/15 border border-blue-500/30 hover:bg-blue-500/25 transition-colors">
-            <StickyNote :size="13" /> Edit Catatan
-          </button>
-          <button @click="openDeleteRental(detail)"
-            class="text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 text-red-400 bg-red-500/15 border border-red-500/30 hover:bg-red-500/25 transition-colors">
-            <Trash2 :size="13" /> Hapus Transaksi
-          </button>
+    <!-- Detail Drawer Removed (Replaced by direct popup Modal) -->
+  </AppLayout>
+
+  <!-- Detail Rental Modal -->
+  <GamingModal :show="showDetailModal" :title="`Detail Rental – ${selectedDetail?.transaction_code || ''}`" @close="showDetailModal = false">
+    <div v-if="selectedDetail" class="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+      <!-- Header status pill & console -->
+      <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+        <div>
+          <span class="text-xs uppercase font-mono px-2 py-0.5 rounded-full"
+            :style="{ background: (typeColors[selectedDetail.console?.type] || '#60a5fa') + '22', color: typeColors[selectedDetail.console?.type] || '#60a5fa' }">
+            {{ selectedDetail.console?.type }}
+          </span>
+          <h4 class="text-base font-bold text-white mt-1">{{ selectedDetail.console?.name }}</h4>
+        </div>
+        <div class="text-right">
+          <span class="text-xs px-2.5 py-1 rounded-full font-medium"
+            :style="statusBadgeStyle[selectedDetail.status]">
+            {{ statusLabels[selectedDetail.status] || selectedDetail.status }}
+          </span>
+          <p class="text-xs text-slate-400 mt-1 capitalize">{{ selectedDetail.rental_type.replace('_', ' ') }}</p>
         </div>
       </div>
-      <div class="grid grid-cols-2 gap-y-2 text-sm">
-        <div><span style="color:#94a3b8;">Operator</span><p class="text-white">{{ detail.employee?.name ?? '(dihapus)' }}</p></div>
-        <div><span style="color:#94a3b8;">Tipe</span><p class="text-white capitalize">{{ detail.rental_type.replace('_', ' ') }}</p></div>
-        <div><span style="color:#94a3b8;">Mulai</span><p class="text-white">{{ formatDt(detail.started_at) }}</p></div>
-        <div><span style="color:#94a3b8;">Selesai</span><p class="text-white">{{ formatDt(detail.ended_at) }}</p></div>
-        <div class="col-span-2">
-          <span style="color:#94a3b8;">Catatan</span>
-          <p class="text-white text-xs mt-1 bg-black/30 p-2.5 rounded-lg border border-slate-800">
-            {{ detail.notes || 'Tidak ada catatan' }}
-          </p>
+
+      <!-- Info grid -->
+      <div class="grid grid-cols-2 gap-3 text-xs p-3 rounded-xl bg-slate-900/40 border border-slate-800/80">
+        <div>
+          <span class="text-slate-400">Customer</span>
+          <p class="text-white font-semibold mt-0.5">{{ selectedDetail.customer_name || 'Customer' }}</p>
         </div>
-        <div class="col-span-2 mt-2">
-          <span style="color:#94a3b8;">Pembayaran</span>
-          <div class="flex flex-wrap gap-2 mt-1">
-            <span v-for="p in detail.payments" :key="p.method + p.amount"
-              class="text-xs px-2 py-1 rounded-full"
-              style="background:rgba(34,197,94,.15); color:#22c55e;">
-              {{ p.method }}: {{ formatCurrency(p.amount) }}
+        <div>
+          <span class="text-slate-400">Operator</span>
+          <p class="text-white font-semibold mt-0.5">{{ selectedDetail.employee?.name ?? '(dihapus)' }}</p>
+        </div>
+        <div>
+          <span class="text-slate-400">Mulai</span>
+          <p class="text-white font-medium mt-0.5">{{ formatDt(selectedDetail.started_at) }}</p>
+        </div>
+        <div>
+          <span class="text-slate-400">Selesai</span>
+          <p class="text-white font-medium mt-0.5">{{ formatDt(selectedDetail.ended_at) }}</p>
+        </div>
+        <div>
+          <span class="text-slate-400">Durasi Bermain</span>
+          <p class="text-purple-400 font-semibold mt-0.5">{{ formatDuration(selectedDetail.started_at, selectedDetail.ended_at) }}</p>
+        </div>
+        <div>
+          <span class="text-slate-400">Tarif / Jam</span>
+          <p class="text-white font-medium mt-0.5">{{ formatCurrency(selectedDetail.console?.price_per_hour || 0) }}</p>
+        </div>
+      </div>
+
+      <!-- FnB Items (jika ada) -->
+      <div v-if="selectedDetail.fnb_items && selectedDetail.fnb_items.length" class="p-3 rounded-xl bg-slate-900/40 border border-slate-800/80 space-y-2">
+        <div class="flex items-center justify-between text-xs font-semibold text-white border-b border-slate-800 pb-1.5">
+          <span class="flex items-center gap-1.5 text-emerald-400"><UtensilsCrossed :size="13" /> Pesanan F&B</span>
+          <span>{{ formatCurrency(selectedDetail.fnb_amount || 0) }}</span>
+        </div>
+        <div class="space-y-1 text-xs">
+          <div v-for="fi in selectedDetail.fnb_items" :key="fi.id" class="flex justify-between items-center text-slate-300">
+            <span>{{ fi.fnb_item?.name || 'Item F&B' }} <span class="text-slate-400">x{{ fi.qty }}</span></span>
+            <span class="font-medium text-white">{{ formatCurrency(fi.subtotal) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Extensions (jika ada) -->
+      <div v-if="selectedDetail.extensions && selectedDetail.extensions.length" class="p-3 rounded-xl bg-slate-900/40 border border-slate-800/80 space-y-1.5">
+        <div class="flex items-center justify-between text-xs font-semibold text-white border-b border-slate-800 pb-1.5">
+          <span class="flex items-center gap-1.5 text-sky-400"><Clock :size="13" /> Penambahan Waktu</span>
+          <span>{{ formatCurrency(selectedDetail.extra_amount || 0) }}</span>
+        </div>
+        <div class="space-y-1 text-xs">
+          <div v-for="ext in selectedDetail.extensions" :key="ext.id" class="flex justify-between items-center text-slate-300">
+            <span>+{{ ext.added_minutes }} Menit</span>
+            <span class="font-medium text-white">{{ formatCurrency(ext.additional_price) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Total & Payment Breakdown -->
+      <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+        <div class="flex justify-between text-xs text-slate-300">
+          <span>Biaya Rental PS</span>
+          <span class="text-white font-medium">{{ formatCurrency(selectedDetail.rental_amount || 0) }}</span>
+        </div>
+        <div v-if="selectedDetail.extra_amount" class="flex justify-between text-xs text-slate-300">
+          <span>Tambahan Waktu</span>
+          <span class="text-white font-medium">{{ formatCurrency(selectedDetail.extra_amount) }}</span>
+        </div>
+        <div v-if="selectedDetail.fnb_amount" class="flex justify-between text-xs text-slate-300">
+          <span>Pesanan F&B</span>
+          <span class="text-white font-medium">{{ formatCurrency(selectedDetail.fnb_amount) }}</span>
+        </div>
+        <div class="flex justify-between text-sm font-bold pt-2 border-t border-slate-800">
+          <span class="text-white">Total Tagihan</span>
+          <span class="text-purple-400">{{ formatCurrency(selectedDetail.total_amount) }}</span>
+        </div>
+
+        <!-- Payments -->
+        <div class="pt-2 border-t border-slate-800">
+          <span class="text-[11px] text-slate-400 block mb-1">Metode Pembayaran:</span>
+          <div class="flex flex-wrap gap-1.5">
+            <span v-for="p in selectedDetail.payments" :key="p.method + p.amount"
+              class="text-xs px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1"
+              style="background:rgba(34,197,94,.15); color:#22c55e; border:1px solid rgba(34,197,94,.3);">
+              ✓ {{ p.method }}: {{ formatCurrency(p.amount) }}
             </span>
           </div>
         </div>
       </div>
+
+      <!-- Notes (jika ada) -->
+      <div v-if="selectedDetail.notes" class="p-3 rounded-xl bg-slate-900/40 border border-slate-800 text-xs">
+        <span class="text-slate-400 font-medium block mb-1">Catatan:</span>
+        <p class="text-slate-200">{{ selectedDetail.notes }}</p>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800">
+        <div class="flex items-center gap-2">
+          <button type="button" @click="openEditNotesRental(selectedDetail); showDetailModal = false"
+            class="text-xs px-3 py-2 rounded-xl text-blue-400 bg-blue-500/15 border border-blue-500/30 hover:bg-blue-500/25 flex items-center gap-1.5">
+            <StickyNote :size="13" /> Edit Catatan
+          </button>
+          <a :href="route('rentals.receipt', selectedDetail.id)" target="_blank"
+            class="text-xs px-3 py-2 rounded-xl text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 flex items-center gap-1.5">
+            <Receipt :size="13" /> Cetak Struk
+          </a>
+        </div>
+        <div class="flex items-center gap-2">
+          <a :href="route('rentals.show', selectedDetail.id)"
+            class="text-xs px-3 py-2 rounded-xl text-white font-medium flex items-center gap-1.5 transition-all"
+            style="background:linear-gradient(135deg,#7c3aed,#6d28d9);">
+            <ExternalLink :size="13" /> Halaman Lengkap
+          </a>
+          <button type="button" @click="showDetailModal = false"
+            class="text-xs px-3 py-2 rounded-xl text-slate-300 bg-slate-800 hover:bg-slate-700">
+            Tutup
+          </button>
+        </div>
+      </div>
     </div>
-  </AppLayout>
+  </GamingModal>
+
+  <!-- Detail FnB Modal -->
+  <GamingModal :show="showFnbDetailModal" :title="`Detail Pesanan FNB – ${selectedFnbDetail?.code || ''}`" @close="showFnbDetailModal = false">
+    <div v-if="selectedFnbDetail" class="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+      <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+        <div>
+          <span class="text-xs uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
+            F&B POS
+          </span>
+          <h4 class="text-base font-bold text-white mt-1">{{ selectedFnbDetail.customer_name || 'Walk-in Customer' }}</h4>
+        </div>
+        <div class="text-right">
+          <span class="text-xs px-2.5 py-1 rounded-full font-medium bg-emerald-500/20 text-emerald-400">
+            Lunas
+          </span>
+          <p class="text-xs text-slate-400 mt-1">{{ formatDt(selectedFnbDetail.paid_at || selectedFnbDetail.created_at) }}</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 text-xs p-3 rounded-xl bg-slate-900/40 border border-slate-800/80">
+        <div>
+          <span class="text-slate-400">Kasir / Operator</span>
+          <p class="text-white font-semibold mt-0.5">{{ selectedFnbDetail.employee?.name || '(dihapus)' }}</p>
+        </div>
+        <div>
+          <span class="text-slate-400">Metode Bayar</span>
+          <p class="text-emerald-400 font-bold uppercase mt-0.5">{{ selectedFnbDetail.payment_method }}</p>
+        </div>
+      </div>
+
+      <!-- Items -->
+      <div class="p-3 rounded-xl bg-slate-900/40 border border-slate-800/80 space-y-2">
+        <h5 class="text-xs font-semibold text-white border-b border-slate-800 pb-1.5 flex items-center gap-1.5 text-emerald-400">
+          <UtensilsCrossed :size="13" /> Rincian Menu
+        </h5>
+        <div class="space-y-1.5 text-xs">
+          <div v-for="it in selectedFnbDetail.items" :key="it.id" class="flex justify-between items-center text-slate-300">
+            <div>
+              <span class="text-white font-medium">{{ it.fnb_item?.name || 'Item F&B' }}</span>
+              <span class="text-slate-400 ml-2">x{{ it.qty }} @ {{ formatCurrency(it.unit_price) }}</span>
+            </div>
+            <span class="font-bold text-white">{{ formatCurrency(it.subtotal) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-sm font-bold">
+        <span class="text-white">Total Tagihan</span>
+        <span class="text-emerald-400 text-base">{{ formatCurrency(selectedFnbDetail.total_amount) }}</span>
+      </div>
+
+      <div v-if="selectedFnbDetail.notes" class="p-3 rounded-xl bg-slate-900/40 border border-slate-800 text-xs">
+        <span class="text-slate-400 font-medium block mb-1">Catatan:</span>
+        <p class="text-slate-200">{{ selectedFnbDetail.notes }}</p>
+      </div>
+
+      <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
+        <button type="button" @click="openEditNotesFnb(selectedFnbDetail); showFnbDetailModal = false"
+          class="text-xs px-3 py-2 rounded-xl text-blue-400 bg-blue-500/15 border border-blue-500/30 hover:bg-blue-500/25 flex items-center gap-1.5">
+          <StickyNote :size="13" /> Edit Catatan
+        </button>
+        <button type="button" @click="showFnbDetailModal = false"
+          class="text-xs px-3 py-2 rounded-xl text-slate-300 bg-slate-800 hover:bg-slate-700">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </GamingModal>
 
   <!-- Edit Catatan Modal -->
   <GamingModal :show="showNotesModal" :title="`Edit Catatan – ${targetType === 'rental' ? editingRental?.transaction_code : editingFnb?.code}`" @close="showNotesModal = false">

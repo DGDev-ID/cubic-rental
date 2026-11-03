@@ -203,7 +203,7 @@ class RentalController extends Controller
 
     public function history(Request $request): Response
     {
-        $query = Rental::with(['console', 'employee', 'payments'])
+        $query = Rental::with(['console', 'employee', 'payments', 'fnbItems.fnbItem', 'extensions'])
             ->whereIn('status', ['finished', 'paid', 'half_paid', 'cancelled']);
 
         $fnbQuery = \App\Models\FnbOrder::with(['employee', 'console', 'items.fnbItem'])
@@ -349,10 +349,10 @@ class RentalController extends Controller
 
     public function exportExcel(Request $request)
     {
-        $query = Rental::with(['console', 'employee'])
+        $query = Rental::with(['console', 'employee', 'fnbItems.fnbItem', 'payments'])
             ->whereIn('status', ['finished', 'paid', 'half_paid']);
 
-        $fnbQuery = \App\Models\FnbOrder::with(['console', 'employee'])
+        $fnbQuery = \App\Models\FnbOrder::with(['console', 'employee', 'items.fnbItem'])
             ->where('status', 'paid');
 
         if ($request->search) {
@@ -407,32 +407,49 @@ class RentalController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Riwayat Transaksi');
 
-        // ---------- Column headers ----------
-        $headers = ['Tanggal', 'Kode Transaksi', 'Customer', 'Console', 'Operator', 'Total FnB (Rp)', 'Total Rental (Rp)', 'Total Semua (Rp)'];
+        // ---------- Column headers (Matching manual accounting sheet) ----------
+        $headers = [
+            'Tanggal',
+            'Operator',
+            'Jam Main',
+            'Jumlah Jam',
+            'Table',
+            'Harga Per-Jam',
+            'FNB',
+            'QTY',
+            'Harga FNB',
+            'Total FNB (Rp)',
+            'Total PS (Rp)',
+            'Total (Rp)',
+            'Pay',
+            'Kasir',
+            'Cash (Rp)',
+            'QRIS (Rp)',
+        ];
         $colCount = count($headers);
         $lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colCount);
 
-        // ---------- Header branding (merged exactly to table width) ----------
-        $sheet->setCellValue('A1', config('app.name', 'Rental PS'));
+        // ---------- Header branding ----------
+        $sheet->setCellValue('A1', config('app.name', 'Rental PS') . ' – PEMBUKUAN TRANSAKSI');
         $sheet->mergeCells("A1:{$lastCol}1");
         $sheet->getStyle('A1')->applyFromArray([
             'font'      => ['bold' => true, 'size' => 14, 'color' => ['rgb' => 'FFFFFF']],
-            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '0EA5E9']],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '0284C7']],
             'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
         ]);
 
-        $sheet->setCellValue('A2', 'Riwayat Transaksi – ' . $periodLabel);
+        $sheet->setCellValue('A2', 'Periode: ' . $periodLabel);
         $sheet->mergeCells("A2:{$lastCol}2");
         $sheet->getStyle('A2')->applyFromArray([
             'font'      => ['bold' => true, 'size' => 11, 'color' => ['rgb' => 'FFFFFF']],
-            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '38BDF8']],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '0EA5E9']],
             'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
         ]);
 
         $sheet->setCellValue('A3', 'Diekspor pada: ' . now()->format('d/m/Y H:i:s'));
         $sheet->mergeCells("A3:{$lastCol}3");
         $sheet->getStyle('A3')->applyFromArray([
-            'font'      => ['italic' => true, 'size' => 9, 'color' => ['rgb' => '888888']],
+            'font'      => ['italic' => true, 'size' => 9, 'color' => ['rgb' => '64748B']],
             'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT],
         ]);
 
@@ -442,99 +459,233 @@ class RentalController extends Controller
             $sheet->setCellValue("{$col}{$headerRow}", $h);
         }
         $sheet->getStyle("A{$headerRow}:{$lastCol}{$headerRow}")->applyFromArray([
-            'font'      => ['bold' => true, 'color' => ['rgb' => '0C4A6E']],
-            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '7DD3FC']],
-            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
-            'borders'   => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => 'BAE6FD']]],
+            'font'      => ['bold' => true, 'color' => ['rgb' => '0C4A6E'], 'size' => 10],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'BAE6FD']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER, 'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
+            'borders'   => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => '7DD3FC']]],
         ]);
+        $sheet->getRowDimension($headerRow)->setRowHeight(26);
 
         $row = $headerRow + 1;
-        $totalFnb = $totalRental = $totalSemua = 0;
-        $totalCustomers = 0;
+        $totalFnb = 0;
+        $totalRental = 0;
+        $totalSemua = 0;
+        $totalCash = 0;
+        $totalQris = 0;
 
         $numFmt = '#,##0';
-        $altFill = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'BAE6FD']];
-        $normFill = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E0F2FE']];
-        $fontColor = ['color' => ['rgb' => '0C4A6E']];
-        $amountColor = ['color' => ['rgb' => '0369A1']];
-        $borderStyle = ['borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => '7DD3FC']]]];
+        $altFill = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F0F9FF']];
+        $normFill = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFFFFF']];
+        $fontColor = ['color' => ['rgb' => '0F172A']];
+        $borderStyle = ['borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => 'E2E8F0']]]];
 
+        // Format rentals
         foreach ($rentals as $idx => $r) {
-            $totalFnb    += $r->fnb_amount;
-            $totalRental += $r->rental_amount;
-            $totalSemua  += $r->total_amount;
-            $totalCustomers++;
+            // Include extra_amount (penambahan waktu) into Total Rental PS
+            $rentalPSAmount = (float) ($r->rental_amount + $r->extra_amount);
+            $fnbAmount      = (float) $r->fnb_amount;
+            $grandTotal     = (float) $r->total_amount;
+
+            $totalFnb    += $fnbAmount;
+            $totalRental += $rentalPSAmount;
+            $totalSemua  += $grandTotal;
+
+            // FnB details breakdown
+            $fnbNames = [];
+            $fnbQtys = [];
+            $fnbPrices = [];
+            foreach ($r->fnbItems as $item) {
+                $fnbNames[]  = $item->fnbItem?->name ?? 'FnB';
+                $fnbQtys[]   = $item->qty;
+                $fnbPrices[] = number_format((float) $item->subtotal, 0, ',', '.');
+            }
+
+            // Payments breakdown
+            $cashAmount = (float) $r->payments->where('method', 'cash')->sum('amount');
+            $qrisAmount = (float) $r->payments->whereIn('method', ['qris', 'transfer', 'debit'])->sum('amount');
+            if ($cashAmount == 0 && $qrisAmount == 0 && $r->paid_amount > 0) {
+                $cashAmount = (float) $r->paid_amount;
+            }
+            $totalCash += $cashAmount;
+            $totalQris += $qrisAmount;
+
+            $payMethods = $r->payments->pluck('method')->unique()->map(fn($m) => strtoupper($m))->values();
+            if ($payMethods->count() > 1) {
+                $payLabel = 'SPLIT';
+            } elseif ($payMethods->count() === 1) {
+                $payLabel = $payMethods->first();
+            } else {
+                $payLabel = 'CASH';
+            }
+
+            // Duration and Jam Main
+            $jamStart = $r->started_at ? $r->started_at->format('H.i') : '-';
+            $jamEnd   = $r->ended_at ? $r->ended_at->format('H.i') : ($r->scheduled_end_at ? $r->scheduled_end_at->format('H.i') : 'Selesai');
+            $jamMain  = "{$jamStart} - {$jamEnd}";
+
+            if ($r->scheduled_end_at && $r->started_at) {
+                $durHours = round($r->started_at->diffInMinutes($r->scheduled_end_at) / 60, 1);
+                $durLabel = $durHours . ' Jam';
+            } elseif ($r->ended_at && $r->started_at) {
+                $durHours = round($r->started_at->diffInMinutes($r->ended_at) / 60, 1);
+                $durLabel = $r->rental_type === 'open_time' ? 'OPN (' . $durHours . 'j)' : $durHours . ' Jam';
+            } else {
+                $durLabel = $r->rental_type === 'open_time' ? 'OPN' : '-';
+            }
 
             $fill = $idx % 2 === 0 ? $normFill : $altFill;
-            $sheet->setCellValue("A{$row}", $r->started_at?->format('d/m/Y') ?? '-');
-            $sheet->setCellValue("B{$row}", $r->transaction_code ?? '-');
-            $sheet->setCellValue("C{$row}", $r->customer_name ?? '-');
-            $sheet->setCellValue("D{$row}", $r->console->name ?? '-');
-            $sheet->setCellValue("E{$row}", $r->employee->name ?? '-');
-            $sheet->setCellValue("F{$row}", (float) $r->fnb_amount);
-            $sheet->setCellValue("G{$row}", (float) $r->rental_amount);
-            $sheet->setCellValue("H{$row}", (float) $r->total_amount);
 
-            $sheet->getStyle("A{$row}:H{$row}")->applyFromArray(array_merge(['font' => $fontColor, 'fill' => $fill], $borderStyle));
-            $sheet->getStyle("F{$row}:H{$row}")->applyFromArray(['font' => $amountColor]);
-            $sheet->getStyle("F{$row}:H{$row}")->getNumberFormat()->setFormatCode($numFmt);
+            $sheet->setCellValue("A{$row}", $r->started_at?->format('d/m/Y') ?? '-');
+            $sheet->setCellValue("B{$row}", $r->employee->name ?? '-');
+            $sheet->setCellValue("C{$row}", $jamMain);
+            $sheet->setCellValue("D{$row}", $durLabel);
+            $sheet->setCellValue("E{$row}", $r->console->name ?? '-');
+            $sheet->setCellValue("F{$row}", (float) ($r->console->price_per_hour ?? 0));
+            $sheet->setCellValue("G{$row}", count($fnbNames) ? implode("\n", $fnbNames) : '-');
+            $sheet->setCellValue("H{$row}", count($fnbQtys) ? implode("\n", $fnbQtys) : '-');
+            $sheet->setCellValue("I{$row}", count($fnbPrices) ? implode("\n", $fnbPrices) : '-');
+            $sheet->setCellValue("J{$row}", $fnbAmount);
+            $sheet->setCellValue("K{$row}", $rentalPSAmount);
+            $sheet->setCellValue("L{$row}", $grandTotal);
+            $sheet->setCellValue("M{$row}", $payLabel);
+            $sheet->setCellValue("N{$row}", $r->employee->name ?? '-');
+            $sheet->setCellValue("O{$row}", $cashAmount);
+            $sheet->setCellValue("P{$row}", $qrisAmount);
+
+            // Styling
+            $sheet->getStyle("A{$row}:P{$row}")->applyFromArray(array_merge(['font' => $fontColor, 'fill' => $fill], $borderStyle));
+            $sheet->getStyle("A{$row}:E{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("F{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("G{$row}")->getAlignment()->setWrapText(true);
+            $sheet->getStyle("H{$row}")->getAlignment()->setWrapText(true)->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("I{$row}")->getAlignment()->setWrapText(true)->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("J{$row}:L{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("M{$row}:N{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("O{$row}:P{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+
+            $sheet->getStyle("A{$row}:P{$row}")->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+
+            $sheet->getStyle("F{$row}")->getNumberFormat()->setFormatCode($numFmt);
+            $sheet->getStyle("J{$row}:L{$row}")->getNumberFormat()->setFormatCode($numFmt);
+            $sheet->getStyle("O{$row}:P{$row}")->getNumberFormat()->setFormatCode($numFmt);
+
             $row++;
         }
 
+        // Format standalone FnB orders
         foreach ($fnbOrders as $idx => $f) {
-            $totalFnb   += $f->total_amount;
-            $totalSemua += $f->total_amount;
-            $totalCustomers++;
+            $fnbAmount  = (float) $f->total_amount;
+            $grandTotal = (float) $f->total_amount;
+
+            $totalFnb   += $fnbAmount;
+            $totalSemua += $grandTotal;
+
+            $fnbNames = [];
+            $fnbQtys = [];
+            $fnbPrices = [];
+            foreach ($f->items as $item) {
+                $fnbNames[]  = $item->fnbItem?->name ?? 'FnB';
+                $fnbQtys[]   = $item->qty;
+                $fnbPrices[] = number_format((float) $item->subtotal, 0, ',', '.');
+            }
+
+            $method = strtolower($f->payment_method ?? 'cash');
+            $isCash = $method === 'cash';
+            $cashAmount = $isCash ? $grandTotal : 0;
+            $qrisAmount = !$isCash ? $grandTotal : 0;
+            $totalCash += $cashAmount;
+            $totalQris += $qrisAmount;
 
             $fill = ($idx + count($rentals)) % 2 === 0 ? $normFill : $altFill;
-            $sheet->setCellValue("A{$row}", $f->paid_at?->format('d/m/Y') ?? '-');
-            $sheet->setCellValue("B{$row}", $f->code ?? '-');
-            $sheet->setCellValue("C{$row}", $f->customer_name ?? '-');
-            $sheet->setCellValue("D{$row}", $f->console->name ?? '-');
-            $sheet->setCellValue("E{$row}", $f->employee->name ?? '-');
-            $sheet->setCellValue("F{$row}", (float) $f->total_amount);
-            $sheet->setCellValue("G{$row}", 0);
-            $sheet->setCellValue("H{$row}", (float) $f->total_amount);
 
-            $sheet->getStyle("A{$row}:H{$row}")->applyFromArray(array_merge(['font' => $fontColor, 'fill' => $fill], $borderStyle));
-            $sheet->getStyle("F{$row}:H{$row}")->applyFromArray(['font' => $amountColor]);
-            $sheet->getStyle("F{$row}:H{$row}")->getNumberFormat()->setFormatCode($numFmt);
+            $sheet->setCellValue("A{$row}", $f->paid_at?->format('d/m/Y') ?? '-');
+            $sheet->setCellValue("B{$row}", $f->employee->name ?? '-');
+            $sheet->setCellValue("C{$row}", '-');
+            $sheet->setCellValue("D{$row}", '-');
+            $sheet->setCellValue("E{$row}", $f->console->name ?? 'Kasir / FnB');
+            $sheet->setCellValue("F{$row}", 0);
+            $sheet->setCellValue("G{$row}", count($fnbNames) ? implode("\n", $fnbNames) : '-');
+            $sheet->setCellValue("H{$row}", count($fnbQtys) ? implode("\n", $fnbQtys) : '-');
+            $sheet->setCellValue("I{$row}", count($fnbPrices) ? implode("\n", $fnbPrices) : '-');
+            $sheet->setCellValue("J{$row}", $fnbAmount);
+            $sheet->setCellValue("K{$row}", 0);
+            $sheet->setCellValue("L{$row}", $grandTotal);
+            $sheet->setCellValue("M{$row}", strtoupper($method));
+            $sheet->setCellValue("N{$row}", $f->employee->name ?? '-');
+            $sheet->setCellValue("O{$row}", $cashAmount);
+            $sheet->setCellValue("P{$row}", $qrisAmount);
+
+            $sheet->getStyle("A{$row}:P{$row}")->applyFromArray(array_merge(['font' => $fontColor, 'fill' => $fill], $borderStyle));
+            $sheet->getStyle("A{$row}:E{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("F{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("G{$row}")->getAlignment()->setWrapText(true);
+            $sheet->getStyle("H{$row}")->getAlignment()->setWrapText(true)->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("I{$row}")->getAlignment()->setWrapText(true)->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("J{$row}:L{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("M{$row}:N{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("O{$row}:P{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+
+            $sheet->getStyle("A{$row}:P{$row}")->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+
+            $sheet->getStyle("F{$row}")->getNumberFormat()->setFormatCode($numFmt);
+            $sheet->getStyle("J{$row}:L{$row}")->getNumberFormat()->setFormatCode($numFmt);
+            $sheet->getStyle("O{$row}:P{$row}")->getNumberFormat()->setFormatCode($numFmt);
+
             $row++;
         }
 
         // ---------- Summary row ----------
-        $row++;
         $sheet->setCellValue("A{$row}", 'TOTAL');
-        $sheet->setCellValue("C{$row}", $totalCustomers . ' customer');
-        $sheet->setCellValue("F{$row}", (float) $totalFnb);
-        $sheet->setCellValue("G{$row}", (float) $totalRental);
-        $sheet->setCellValue("H{$row}", (float) $totalSemua);
-        $sheet->mergeCells("A{$row}:B{$row}");
-        $sheet->getStyle("A{$row}:H{$row}")->applyFromArray([
-            'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '38BDF8']],
-            'borders'   => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM, 'color' => ['rgb' => '7DD3FC']]],
+        $sheet->mergeCells("A{$row}:I{$row}");
+        $sheet->setCellValue("J{$row}", (float) $totalFnb);
+        $sheet->setCellValue("K{$row}", (float) $totalRental);
+        $sheet->setCellValue("L{$row}", (float) $totalSemua);
+        $sheet->setCellValue("M{$row}", '');
+        $sheet->setCellValue("N{$row}", '');
+        $sheet->mergeCells("M{$row}:N{$row}");
+        $sheet->setCellValue("O{$row}", (float) $totalCash);
+        $sheet->setCellValue("P{$row}", (float) $totalQris);
+
+        $sheet->getStyle("A{$row}:P{$row}")->applyFromArray([
+            'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '0284C7']],
+            'borders'   => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM, 'color' => ['rgb' => '0369A1']]],
+            'alignment' => ['vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
         ]);
-        $sheet->getStyle("F{$row}:H{$row}")->getNumberFormat()->setFormatCode($numFmt);
+        $sheet->getStyle("A{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle("J{$row}:L{$row}")->getNumberFormat()->setFormatCode($numFmt);
+        $sheet->getStyle("O{$row}:P{$row}")->getNumberFormat()->setFormatCode($numFmt);
+        $sheet->getRowDimension($row)->setRowHeight(24);
 
         // ---------- Column widths ----------
-        $widths = [14, 20, 22, 18, 18, 18, 18, 18];
-        foreach ($widths as $ci => $w) {
-            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($ci + 1);
+        $widths = [
+            'A' => 13, // Tanggal
+            'B' => 15, // Operator
+            'C' => 16, // Jam Main
+            'D' => 13, // Jumlah Jam
+            'E' => 16, // Table
+            'F' => 15, // Harga Per-Jam
+            'G' => 26, // FNB
+            'H' => 8,  // QTY
+            'I' => 14, // Harga FNB
+            'J' => 17, // Total FNB
+            'K' => 17, // Total PS
+            'L' => 17, // Total
+            'M' => 12, // Pay
+            'N' => 15, // Kasir
+            'O' => 16, // Cash
+            'P' => 16, // QRIS
+        ];
+        foreach ($widths as $col => $w) {
             $sheet->getColumnDimension($col)->setWidth($w);
         }
 
-        // Fix row heights
-        $sheet->getRowDimension(1)->setRowHeight(22);
-        $sheet->getRowDimension(2)->setRowHeight(18);
+        // Freeze pane
+        $sheet->freezePane("A" . ($headerRow + 1));
 
-        // Freeze header
-        $sheet->freezePane("A{$headerRow}");
+        $sheet->getTabColor()->setRGB('0284C7');
 
-        // Tab color
-        $sheet->getTabColor()->setRGB('38BDF8');
-
-        $fileName = 'riwayat_transaksi_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'pembukuan_transaksi_' . date('Y-m-d_H-i-s') . '.xlsx';
 
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
 

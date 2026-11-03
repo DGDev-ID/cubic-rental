@@ -5,7 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 import GamingModal from '@/Components/GamingModal.vue'
 import {
   Clock, UtensilsCrossed, CheckCircle, Plus, Trash2, Wallet,
-  ArrowLeftRight, StickyNote, ArrowLeft
+  ArrowLeftRight, StickyNote, ArrowLeft, Receipt
 } from 'lucide-vue-next'
 
 interface FnbAddon { id: number; name: string; price: number }
@@ -22,7 +22,7 @@ interface ConsoleItem {
 const props = defineProps<{
   rental: {
     id: number; transaction_code: string; customer_name: string; rental_type: string;
-    status: string; started_at: string; scheduled_end_at: string | null;
+    status: string; started_at: string; scheduled_end_at: string | null; ended_at?: string | null;
     rental_amount: number; fnb_amount: number; extra_amount: number; total_amount: number;
     paid_amount: number;
     notes: string | null; duration_minutes: number; remaining_minutes: number; is_overtime: boolean;
@@ -41,12 +41,18 @@ let timer: ReturnType<typeof setInterval>
 onMounted(() => { timer = setInterval(() => { now.value = new Date() }, 1000) })
 onUnmounted(() => clearInterval(timer))
 
+const isFinishedOrPaid = computed(() => props.rental.status === 'finished' || props.rental.status === 'paid')
+
 const liveDuration = computed(() => {
-  const diff = Math.floor((now.value.getTime() - new Date(props.rental.started_at).getTime()) / 60000)
+  const endTime = isFinishedOrPaid.value && props.rental.ended_at
+    ? new Date(props.rental.ended_at).getTime()
+    : now.value.getTime()
+  const diff = Math.max(0, Math.floor((endTime - new Date(props.rental.started_at).getTime()) / 60000))
   return `${Math.floor(diff / 60)}j ${diff % 60}m`
 })
 
 const liveRemaining = computed(() => {
+  if (isFinishedOrPaid.value) return null
   if (!props.rental.scheduled_end_at) return null
   const diff = Math.floor((new Date(props.rental.scheduled_end_at).getTime() - now.value.getTime()) / 60000)
   if (diff < 0) return `Overtime ${Math.abs(diff)}m`
@@ -180,38 +186,68 @@ function submitNotes() {
     </template>
     <template #header-actions>
       <div class="flex flex-wrap gap-2">
-        <button @click="showSwitchModal = true"
-          class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-white transition-all flex items-center gap-1.5"
-          style="background:rgba(168,85,247,.2); border:1px solid rgba(168,85,247,.4);"
-          title="Pindah Ruangan / Console">
-          <ArrowLeftRight :size="14" /> Pindah Room
-        </button>
-        <button @click="showNotesModal = true"
-          class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-white transition-all flex items-center gap-1.5"
-          style="background:rgba(234,179,8,.2); border:1px solid rgba(234,179,8,.4);"
-          title="Catatan Console">
-          <StickyNote :size="14" /> Catatan
-        </button>
-        <button @click="showAddTime = true"
-          class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-white transition-all flex items-center gap-1.5"
-          style="background:rgba(59,130,246,.2); border:1px solid rgba(59,130,246,.4);">
-          <Clock :size="14" /> + Waktu
-        </button>
-        <button @click="showAddFnb = true"
-          class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-white transition-all flex items-center gap-1.5"
-          style="background:rgba(34,197,94,.2); border:1px solid rgba(34,197,94,.4);">
-          <UtensilsCrossed :size="14" /> + FNB
-        </button>
-        <a :href="route('rentals.payment', rental.id)"
-          class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-white transition-all flex items-center gap-1.5"
-          style="background:rgba(251,191,36,.2); border:1px solid rgba(251,191,36,.4);">
-          <Wallet :size="14" /> Bayar DP
-        </a>
-        <button @click="showFinish = true"
-          class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white transition-all flex items-center gap-1.5 shadow-md shadow-red-500/20"
-          style="background:linear-gradient(135deg,#ef4444,#dc2626);">
-          <CheckCircle :size="14" /> Selesai
-        </button>
+        <template v-if="isFinishedOrPaid">
+          <span v-if="rental.status === 'paid'"
+            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5"
+            style="background:rgba(34,197,94,.15); color:#22c55e; border:1px solid rgba(34,197,94,.3);">
+            ✓ Selesai & Lunas
+          </span>
+          <span v-else
+            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5"
+            style="background:rgba(234,179,8,.15); color:#eab308; border:1px solid rgba(234,179,8,.3);">
+            Selesai (Menunggu Pembayaran)
+          </span>
+          <button @click="showNotesModal = true"
+            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-white transition-all flex items-center gap-1.5"
+            style="background:rgba(234,179,8,.2); border:1px solid rgba(234,179,8,.4);"
+            title="Catatan Transaksi">
+            <StickyNote :size="14" /> Catatan
+          </button>
+          <a :href="route('rentals.receipt', rental.id)" target="_blank"
+            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-emerald-400 transition-all flex items-center gap-1.5"
+            style="background:rgba(16,185,129,.15); border:1px solid rgba(16,185,129,.3);">
+            <Receipt :size="14" /> Cetak Struk
+          </a>
+          <a v-if="remainingPayment > 0" :href="route('rentals.payment', rental.id)"
+            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white transition-all flex items-center gap-1.5 shadow-md shadow-emerald-500/20"
+            style="background:linear-gradient(135deg,#10b981,#059669);">
+            <Wallet :size="14" /> Bayar Sisa Tagihan
+          </a>
+        </template>
+        <template v-else>
+          <button @click="showSwitchModal = true"
+            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-white transition-all flex items-center gap-1.5"
+            style="background:rgba(168,85,247,.2); border:1px solid rgba(168,85,247,.4);"
+            title="Pindah Ruangan / Console">
+            <ArrowLeftRight :size="14" /> Pindah Room
+          </button>
+          <button @click="showNotesModal = true"
+            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-white transition-all flex items-center gap-1.5"
+            style="background:rgba(234,179,8,.2); border:1px solid rgba(234,179,8,.4);"
+            title="Catatan Console">
+            <StickyNote :size="14" /> Catatan
+          </button>
+          <button @click="showAddTime = true"
+            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-white transition-all flex items-center gap-1.5"
+            style="background:rgba(59,130,246,.2); border:1px solid rgba(59,130,246,.4);">
+            <Clock :size="14" /> + Waktu
+          </button>
+          <button @click="showAddFnb = true"
+            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-white transition-all flex items-center gap-1.5"
+            style="background:rgba(34,197,94,.2); border:1px solid rgba(34,197,94,.4);">
+            <UtensilsCrossed :size="14" /> + FNB
+          </button>
+          <a :href="route('rentals.payment', rental.id)"
+            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-white transition-all flex items-center gap-1.5"
+            style="background:rgba(251,191,36,.2); border:1px solid rgba(251,191,36,.4);">
+            <Wallet :size="14" /> Bayar DP
+          </a>
+          <button @click="showFinish = true"
+            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white transition-all flex items-center gap-1.5 shadow-md shadow-red-500/20"
+            style="background:linear-gradient(135deg,#ef4444,#dc2626);">
+            <CheckCircle :size="14" /> Selesai
+          </button>
+        </template>
       </div>
     </template>
 
@@ -260,7 +296,7 @@ function submitNotes() {
         <div class="rounded-xl p-5" style="background:#1a1a26; border:1px solid #2a2a3a;">
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-semibold text-white">Pesanan FNB</h3>
-            <button @click="showAddFnb = true" class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1">
+            <button v-if="!isFinishedOrPaid" @click="showAddFnb = true" class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1">
               <Plus :size="12" /> Tambah FNB
             </button>
           </div>
@@ -277,7 +313,7 @@ function submitNotes() {
               </div>
               <div class="flex items-center gap-3">
                 <p class="text-sm font-bold" style="color:#a78bfa;">{{ formatCurrency(fi.subtotal) }}</p>
-                <button type="button" @click="removeFnbItem(fi.id)"
+                <button v-if="!isFinishedOrPaid" type="button" @click="removeFnbItem(fi.id)"
                   class="p-1.5 rounded-lg text-red-400 hover:text-red-300 transition-colors"
                   style="background:rgba(239,68,68,.1);"
                   title="Hapus Item">
@@ -303,7 +339,7 @@ function submitNotes() {
 
       <!-- Right: Cost (Estimasi Tagihan) -->
       <div class="rounded-xl p-5 h-fit space-y-4" style="background:#1a1a26; border:1px solid #2a2a3a;">
-        <h3 class="text-sm font-semibold text-white">Estimasi Tagihan</h3>
+        <h3 class="text-sm font-semibold text-white">{{ isFinishedOrPaid ? 'Rincian Tagihan' : 'Estimasi Tagihan' }}</h3>
         <div class="space-y-3 text-sm">
           <div class="flex justify-between items-center">
             <span style="color:#94a3b8;">Rental</span>
@@ -336,7 +372,19 @@ function submitNotes() {
           </div>
         </div>
 
-        <button @click="showFinish = true"
+        <template v-if="isFinishedOrPaid">
+          <a v-if="remainingPayment > 0" :href="route('rentals.payment', rental.id)"
+            class="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
+            style="background:linear-gradient(135deg,#10b981,#059669);">
+            <Wallet :size="16" /> Bayar Sisa Tagihan ({{ formatCurrency(remainingPayment) }})
+          </a>
+          <a v-else :href="route('rentals.receipt', rental.id)" target="_blank"
+            class="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20"
+            style="background:linear-gradient(135deg,#7c3aed,#6d28d9);">
+            <Receipt :size="16" /> Cetak / Lihat Struk
+          </a>
+        </template>
+        <button v-else @click="showFinish = true"
           class="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all shadow-lg shadow-red-500/20"
           style="background:linear-gradient(135deg,#ef4444,#dc2626);">
           Selesaikan Rental
