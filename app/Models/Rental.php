@@ -15,7 +15,8 @@ class Rental extends Model
 
     protected $fillable = [
         'transaction_code', 'customer_name', 'console_id', 'employee_id',
-        'package_id', 'rental_type', 'status', 'started_at', 'ended_at',
+        'package_id', 'member_id', 'member_deducted_minutes',
+        'rental_type', 'status', 'started_at', 'ended_at',
         'scheduled_end_at', 'rental_amount', 'fnb_amount', 'extra_amount',
         'total_amount', 'paid_amount', 'notes',
     ];
@@ -44,6 +45,11 @@ class Rental extends Model
     public function package(): BelongsTo
     {
         return $this->belongsTo(Package::class);
+    }
+
+    public function member(): BelongsTo
+    {
+        return $this->belongsTo(Member::class);
     }
 
     public function extensions(): HasMany

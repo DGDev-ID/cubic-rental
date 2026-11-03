@@ -18,6 +18,7 @@ class CreateRentalRequest extends FormRequest
             'notes'          => 'nullable|string|max:500',
             'pay_upfront'    => 'nullable|boolean',
             'payment_method' => 'nullable|string|in:cash,qris,transfer,debit',
+            'member_id'      => 'nullable|exists:members,id',
         ];
     }
 }

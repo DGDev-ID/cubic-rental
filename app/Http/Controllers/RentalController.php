@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Rental;
 use App\Models\Console;
 use App\Models\Employee;
+use App\Models\Member;
+use App\Models\MemberPackage;
 use App\Models\FnbItem;
 use App\Models\FnbAddon;
 use App\Models\RentalFnbItem;
@@ -43,6 +45,8 @@ class RentalController extends Controller
             'consoles'             => Console::where('status', 'available')->orderBy('name')->get(),
             'employees'            => Employee::where('status', 'active')->orderBy('name')->get(),
             'upcoming_reservations'=> $upcomingReservations,
+            'members'              => Member::where('status', 'active')->orderBy('name')->get(['id','member_number','name','console_type','remaining_minutes']),
+            'member_packages'      => MemberPackage::where('is_active', true)->orderBy('price')->get(),
         ]);
     }
 
@@ -203,7 +207,7 @@ class RentalController extends Controller
 
     public function history(Request $request): Response
     {
-        $query = Rental::with(['console', 'employee', 'payments', 'fnbItems.fnbItem', 'extensions'])
+        $query = Rental::with(['console', 'employee', 'payments', 'fnbItems.fnbItem', 'extensions', 'member'])
             ->whereIn('status', ['finished', 'paid', 'half_paid', 'cancelled']);
 
         $fnbQuery = \App\Models\FnbOrder::with(['employee', 'console', 'items.fnbItem'])
@@ -349,7 +353,7 @@ class RentalController extends Controller
 
     public function exportExcel(Request $request)
     {
-        $query = Rental::with(['console', 'employee', 'fnbItems.fnbItem', 'payments'])
+        $query = Rental::with(['console', 'employee', 'fnbItems.fnbItem', 'payments', 'member'])
             ->whereIn('status', ['finished', 'paid', 'half_paid']);
 
         $fnbQuery = \App\Models\FnbOrder::with(['console', 'employee', 'items.fnbItem'])
@@ -535,17 +539,27 @@ class RentalController extends Controller
 
             $fill = $idx % 2 === 0 ? $normFill : $altFill;
 
+            $isMemberRental = !empty($r->member_id);
+            $memberLabel = $isMemberRental ? 'MEMBER ' . strtoupper($r->member->name ?? $r->customer_name) : null;
+
             $sheet->setCellValue("A{$row}", $r->started_at?->format('d/m/Y') ?? '-');
             $sheet->setCellValue("B{$row}", $r->employee->name ?? '-');
             $sheet->setCellValue("C{$row}", $jamMain);
             $sheet->setCellValue("D{$row}", $durLabel);
             $sheet->setCellValue("E{$row}", $r->console->name ?? '-');
-            $sheet->setCellValue("F{$row}", (float) ($r->console->price_per_hour ?? 0));
+
+            if ($isMemberRental) {
+                $sheet->setCellValue("F{$row}", $memberLabel);
+                $sheet->setCellValue("K{$row}", $memberLabel);
+            } else {
+                $sheet->setCellValue("F{$row}", (float) ($r->console->price_per_hour ?? 0));
+                $sheet->setCellValue("K{$row}", $rentalPSAmount);
+            }
+
             $sheet->setCellValue("G{$row}", count($fnbNames) ? implode("\n", $fnbNames) : '-');
             $sheet->setCellValue("H{$row}", count($fnbQtys) ? implode("\n", $fnbQtys) : '-');
             $sheet->setCellValue("I{$row}", count($fnbPrices) ? implode("\n", $fnbPrices) : '-');
             $sheet->setCellValue("J{$row}", $fnbAmount);
-            $sheet->setCellValue("K{$row}", $rentalPSAmount);
             $sheet->setCellValue("L{$row}", $grandTotal);
             $sheet->setCellValue("M{$row}", $payLabel);
             $sheet->setCellValue("N{$row}", $r->employee->name ?? '-');
@@ -568,6 +582,16 @@ class RentalController extends Controller
             $sheet->getStyle("F{$row}")->getNumberFormat()->setFormatCode($numFmt);
             $sheet->getStyle("J{$row}:L{$row}")->getNumberFormat()->setFormatCode($numFmt);
             $sheet->getStyle("O{$row}:P{$row}")->getNumberFormat()->setFormatCode($numFmt);
+
+            if ($isMemberRental) {
+                $memberBadgeStyle = [
+                    'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E11D48']],
+                    'font' => ['color' => ['rgb' => 'FFFFFF'], 'bold' => true, 'size' => 9],
+                    'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+                ];
+                $sheet->getStyle("F{$row}")->applyFromArray($memberBadgeStyle);
+                $sheet->getStyle("K{$row}")->applyFromArray($memberBadgeStyle);
+            }
 
             $row++;
         }
@@ -631,6 +655,16 @@ class RentalController extends Controller
             $sheet->getStyle("J{$row}:L{$row}")->getNumberFormat()->setFormatCode($numFmt);
             $sheet->getStyle("O{$row}:P{$row}")->getNumberFormat()->setFormatCode($numFmt);
 
+            if ($isMemberRental) {
+                $memberBadgeStyle = [
+                    'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E11D48']],
+                    'font' => ['color' => ['rgb' => 'FFFFFF'], 'bold' => true, 'size' => 9],
+                    'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+                ];
+                $sheet->getStyle("F{$row}")->applyFromArray($memberBadgeStyle);
+                $sheet->getStyle("K{$row}")->applyFromArray($memberBadgeStyle);
+            }
+
             $row++;
         }
 
@@ -684,6 +718,94 @@ class RentalController extends Controller
         $sheet->freezePane("A" . ($headerRow + 1));
 
         $sheet->getTabColor()->setRGB('0284C7');
+
+        // ---------- Sheet 2: Rekap Member Cubic ----------
+        $memberSheet = $spreadsheet->createSheet();
+        $memberSheet->setTitle('Rekap Member');
+
+        $allMembers = \App\Models\Member::with(['deposits'])->orderBy('member_number')->get();
+
+        $memberSheet->setCellValue('A2', 'REKAPITULASI MEMBER CUBIC');
+        $memberSheet->mergeCells('A2:H2');
+        $memberSheet->getStyle('A2')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 14, 'color' => ['rgb' => 'D97706']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+        ]);
+
+        $mHeaderRow = 4;
+        $mHeaders = [
+            'A' => 'NO. MEMBER',
+            'B' => 'NO. TELP',
+            'C' => 'NAMA',
+            'D' => 'TIPE ROOM',
+            'E' => 'TOTAL DEPOSIT',
+            'F' => 'METODE',
+            'G' => 'SISA JAM',
+            'H' => 'STATUS',
+        ];
+        foreach ($mHeaders as $col => $title) {
+            $memberSheet->setCellValue("{$col}{$mHeaderRow}", $title);
+        }
+        $memberSheet->getStyle("A{$mHeaderRow}:H{$mHeaderRow}")->applyFromArray([
+            'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 10],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D97706']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER, 'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
+            'borders'   => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => 'B45309']]],
+        ]);
+        $memberSheet->getRowDimension($mHeaderRow)->setRowHeight(26);
+
+        $mRow = $mHeaderRow + 1;
+        $totalMemberDeposit = 0;
+        foreach ($allMembers as $mIdx => $m) {
+            $depositSum = (float) $m->deposits->sum('amount');
+            $totalMemberDeposit += $depositSum;
+            $payMethod = $m->deposits->first()?->payment_method ? strtoupper($m->deposits->first()->payment_method) : '-';
+            $sisaJamText = floor($m->remaining_minutes / 60) . 'j ' . ($m->remaining_minutes % 60) . 'm';
+
+            $mFill = $mIdx % 2 === 0 ? $normFill : ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FEF3C7']];
+
+            $memberSheet->setCellValue("A{$mRow}", $m->member_number);
+            $memberSheet->setCellValue("B{$mRow}", $m->phone ?? '-');
+            $memberSheet->setCellValue("C{$mRow}", $m->name);
+            $memberSheet->setCellValue("D{$mRow}", strtoupper($m->console_type));
+            $memberSheet->setCellValue("E{$mRow}", $depositSum);
+            $memberSheet->setCellValue("F{$mRow}", $payMethod);
+            $memberSheet->setCellValue("G{$mRow}", $sisaJamText);
+            $memberSheet->setCellValue("H{$mRow}", $m->status === 'active' ? 'AKTIF' : 'HABIS');
+
+            $memberSheet->getStyle("A{$mRow}:H{$mRow}")->applyFromArray(array_merge(['font' => $fontColor, 'fill' => $mFill], $borderStyle));
+            $memberSheet->getStyle("A{$mRow}:D{$mRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $memberSheet->getStyle("E{$mRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            $memberSheet->getStyle("E{$mRow}")->getNumberFormat()->setFormatCode($numFmt);
+            $memberSheet->getStyle("F{$mRow}:H{$mRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+            $mRow++;
+        }
+
+        // Summary row for Member Sheet
+        $memberSheet->setCellValue("A{$mRow}", 'TOTAL DEPOSIT MEMBER');
+        $memberSheet->mergeCells("A{$mRow}:D{$mRow}");
+        $memberSheet->setCellValue("E{$mRow}", (float) $totalMemberDeposit);
+        $memberSheet->setCellValue("F{$mRow}", '');
+        $memberSheet->setCellValue("G{$mRow}", '');
+        $memberSheet->setCellValue("H{$mRow}", '');
+        $memberSheet->mergeCells("F{$mRow}:H{$mRow}");
+        $memberSheet->getStyle("A{$mRow}:H{$mRow}")->applyFromArray([
+            'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill'      => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D97706']],
+            'borders'   => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM, 'color' => ['rgb' => 'B45309']]],
+            'alignment' => ['vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
+        ]);
+        $memberSheet->getStyle("A{$mRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $memberSheet->getStyle("E{$mRow}")->getNumberFormat()->setFormatCode($numFmt);
+
+        $mWidths = ['A' => 16, 'B' => 16, 'C' => 20, 'D' => 14, 'E' => 18, 'F' => 12, 'G' => 14, 'H' => 12];
+        foreach ($mWidths as $col => $w) {
+            $memberSheet->getColumnDimension($col)->setWidth($w);
+        }
+
+        // Set active sheet back to Sheet 1
+        $spreadsheet->setActiveSheetIndex(0);
 
         $fileName = 'pembukuan_transaksi_' . date('Y-m-d_H-i-s') . '.xlsx';
 

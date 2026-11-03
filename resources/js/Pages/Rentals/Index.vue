@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
-import { Timer, Play, CalendarClock, Search, CheckCircle2 } from 'lucide-vue-next'
+import { Timer, Play, CalendarClock, Search, CheckCircle2, User, Award, AlertCircle } from 'lucide-vue-next'
 
 interface Console { id: number; name: string; type: string; price_per_hour: number }
 interface Employee { id: number; name: string }
+interface Member {
+  id: number; member_number: string; name: string; console_type: string; remaining_minutes: number
+}
 interface UpcomingReservation {
   id: number; customer_name: string; reserved_at: string; duration_hours: number | null; status: string
 }
@@ -14,7 +17,11 @@ const props = defineProps<{
   consoles: Console[]
   employees: Employee[]
   upcoming_reservations: Record<number, UpcomingReservation[]>
+  members?: Member[]
 }>()
+
+const customerType = ref<'regular' | 'member'>('regular')
+const selectedMemberId = ref<number | null>(null)
 
 const form = useForm({
   customer_name: '',
@@ -24,6 +31,41 @@ const form = useForm({
   notes: '',
   pay_upfront: false,
   payment_method: 'cash',
+  member_id: null as number | null,
+})
+
+const currentMember = computed(() => props.members?.find(m => m.id === selectedMemberId.value))
+
+watch(customerType, (type) => {
+  if (type === 'regular') {
+    selectedMemberId.value = null
+    form.member_id = null
+    filterType.value = 'all'
+  } else {
+    form.pay_upfront = false
+  }
+})
+
+watch(selectedMemberId, (id) => {
+  form.member_id = id
+  if (currentMember.value) {
+    form.customer_name = currentMember.value.name
+    filterType.value = currentMember.value.console_type
+    // If currently selected console doesn't match member's type, clear it
+    if (selectedConsole.value && selectedConsole.value.type !== currentMember.value.console_type) {
+      form.console_id = null
+    }
+  }
+})
+
+const memberMaxHours = computed(() => {
+  if (!currentMember.value) return 24
+  return Math.floor(currentMember.value.remaining_minutes / 60)
+})
+
+const memberDurationExceeded = computed(() => {
+  if (customerType.value !== 'member' || !currentMember.value || !form.duration_hours) return false
+  return (form.duration_hours * 60) > currentMember.value.remaining_minutes
 })
 
 const selectedConsole = computed(() => props.consoles.find(c => c.id === form.console_id))
@@ -75,8 +117,59 @@ const typeColors: Record<string, string> = {
       <form @submit.prevent="submit">
         <div class="rounded-xl p-6 space-y-5" style="background-color:#1a1a26; border:1px solid #2a2a3a;">
 
-          <!-- Customer (opsional) -->
+          <!-- Customer Type Tabs: Regular vs Member -->
           <div>
+            <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Jenis Customer *</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" @click="customerType = 'regular'"
+                class="py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                :style="customerType === 'regular'
+                  ? 'background:linear-gradient(135deg,#8b5cf6,#3b82f6); color:white; border:1px solid #a78bfa;'
+                  : 'background:#12121a; color:#94a3b8; border:1px solid #2a2a3a;'">
+                <User :size="15" /> Customer Biasa
+              </button>
+              <button type="button" @click="customerType = 'member'"
+                class="py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                :style="customerType === 'member'
+                  ? 'background:linear-gradient(135deg,#10b981,#059669); color:white; border:1px solid #34d399;'
+                  : 'background:#12121a; color:#94a3b8; border:1px solid #2a2a3a;'">
+                <Award :size="15" /> Member Cubic (Potong Kuota)
+              </button>
+            </div>
+          </div>
+
+          <!-- Member Selector (hanya jika jenis customer = member) -->
+          <div v-if="customerType === 'member'" class="p-4 rounded-xl space-y-3" style="background:rgba(16,185,129,.06); border:1px solid rgba(16,185,129,.3);">
+            <div>
+              <label class="block text-xs font-semibold mb-1 text-emerald-400">Pilih Akun Member Cubic *</label>
+              <select v-model="selectedMemberId" required
+                class="w-full px-4 py-3 rounded-xl text-white outline-none"
+                style="background:#12121a; border:1px solid #2a2a3a; font-size:14px;">
+                <option :value="null">-- Pilih Member dari Daftar --</option>
+                <option v-for="m in members" :key="m.id" :value="m.id">
+                  {{ m.member_number }} - {{ m.name }} (Room: {{ m.console_type.toUpperCase() }} | Sisa: {{ Math.floor(m.remaining_minutes/60) }}j {{ m.remaining_minutes%60 }}m)
+                </option>
+              </select>
+            </div>
+
+            <div v-if="currentMember" class="p-3 rounded-xl bg-[#12121a] border border-[#2a2a3a] text-xs space-y-1">
+              <div class="flex justify-between">
+                <span class="text-slate-400">Nama Member</span>
+                <span class="text-white font-semibold">{{ currentMember.name }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Tipe Console Diizinkan</span>
+                <span class="font-bold uppercase" :style="`color: ${typeColors[currentMember.console_type] || '#10b981'}`">{{ currentMember.console_type }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Sisa Kuota Deposit</span>
+                <span class="font-bold text-emerald-400">{{ Math.floor(currentMember.remaining_minutes/60) }} jam {{ currentMember.remaining_minutes%60 }} menit</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Customer (opsional jika biasa) -->
+          <div v-if="customerType === 'regular'">
             <div class="flex items-center justify-between mb-1.5">
               <label class="block text-xs font-medium" style="color:#94a3b8;">Nama Customer (opsional)</label>
               <span class="text-[11px]" style="color:#64748b;">Kosongkan jika tamu / anonym</span>
@@ -180,11 +273,16 @@ const typeColors: Record<string, string> = {
             <p v-if="form.errors.console_id" class="text-red-400 text-xs mt-1">{{ form.errors.console_id }}</p>
           </div>
 
-          <!-- Duration (optional) -->
+          <!-- Duration -->
           <div>
-            <label class="block text-xs font-medium mb-2" style="color:#94a3b8;">
-              <Timer :size="13" class="inline mr-1" /> Durasi (opsional)
-            </label>
+            <div class="flex items-center justify-between mb-2">
+              <label class="block text-xs font-medium" style="color:#94a3b8;">
+                <Timer :size="13" class="inline mr-1" /> Durasi Bermain {{ customerType === 'member' ? '*' : '(opsional)' }}
+              </label>
+              <span v-if="customerType === 'member'" class="text-[11px] text-emerald-400 font-medium">
+                Maksimal {{ memberMaxHours }} jam (sesuai sisa kuota)
+              </span>
+            </div>
             <div class="flex flex-wrap gap-2 mb-2">
               <button v-for="d in durationChips" :key="d" type="button"
                 @click="form.duration_hours = form.duration_hours === d ? null : d"
@@ -194,18 +292,29 @@ const typeColors: Record<string, string> = {
                   : 'background:#12121a; color:#94a3b8; border:1px solid #2a2a3a;'">
                 {{ d }}j
               </button>
-              <input type="number" step="0.5" min="0.5" max="24"
+              <input type="number" step="0.5" min="0.5" :max="customerType === 'member' ? memberMaxHours : 24"
                 v-model.number="form.duration_hours"
                 class="w-24 px-3 py-1.5 rounded-lg text-xs text-white outline-none"
                 style="background:#12121a; border:1px solid #2a2a3a;"
                 placeholder="Custom..." />
             </div>
-            <p class="text-xs" style="color:#64748b;">Kosongkan untuk Open Time (meter jalan tanpa batas).</p>
+
+            <!-- Warning if member duration exceeded -->
+            <div v-if="memberDurationExceeded" class="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-400 flex items-start gap-2 mt-2">
+              <AlertCircle :size="16" class="shrink-0 mt-0.5" />
+              <div>
+                <p class="font-semibold">Durasi melebihi sisa kuota!</p>
+                <p class="mt-0.5">Sisa kuota member hanya {{ Math.floor((currentMember?.remaining_minutes || 0) / 60) }} jam {{ (currentMember?.remaining_minutes || 0) % 60 }} menit. Tidak ada pembiayaan overtime, silakan perpanjang deposit atau kurangi durasi bermain.</p>
+              </div>
+            </div>
+
+            <p v-if="customerType !== 'member'" class="text-xs" style="color:#64748b;">Kosongkan untuk Open Time (meter jalan tanpa batas).</p>
+            <p v-else class="text-xs text-slate-400">Member wajib menentukan durasi bermain yang dipotong dari deposit.</p>
             <p v-if="form.errors.duration_hours" class="text-red-400 text-xs mt-1">{{ form.errors.duration_hours }}</p>
           </div>
 
-          <!-- Bayar di Awal (Prepaid) -->
-          <div v-if="form.duration_hours" class="rounded-xl p-4 transition-all"
+          <!-- Bayar di Awal (Prepaid) - Non Member -->
+          <div v-if="customerType !== 'member' && form.duration_hours" class="rounded-xl p-4 transition-all"
             :style="form.pay_upfront
               ? 'background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.4);'
               : 'background:#12121a; border:1px solid #2a2a3a;'">
@@ -243,6 +352,22 @@ const typeColors: Record<string, string> = {
             </div>
           </div>
 
+          <!-- Member Potong Kuota Card (Member) -->
+          <div v-if="customerType === 'member' && currentMember" class="rounded-xl p-4" style="background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.4);">
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-sm font-semibold text-white flex items-center gap-1.5">
+                  <CheckCircle2 :size="16" class="text-emerald-400" />
+                  Sesi Bermain Member (Potong Kuota)
+                </span>
+                <p class="text-xs text-slate-400 mt-0.5">
+                  Biaya rental PS adalah Rp 0 karena memotong kuota deposit member. Sisa kuota akan otomatis berkurang setelah selesai main.
+                </p>
+              </div>
+              <span class="text-base font-bold text-emerald-400">Rp 0</span>
+            </div>
+          </div>
+
           <!-- Employee -->
           <div>
             <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Operator *</label>
@@ -270,17 +395,27 @@ const typeColors: Record<string, string> = {
             <div class="space-y-1.5 text-sm">
               <div class="flex justify-between">
                 <span style="color:#94a3b8;">Console</span>
-                <span class="text-white">{{ selectedConsole.name }}</span>
+                <span class="text-white">{{ selectedConsole.name }} ({{ selectedConsole.type.toUpperCase() }})</span>
+              </div>
+              <div v-if="customerType === 'member' && currentMember" class="flex justify-between">
+                <span style="color:#94a3b8;">Status Member</span>
+                <span class="text-emerald-400 font-semibold">{{ currentMember.name }} ({{ currentMember.member_number }})</span>
               </div>
               <div class="flex justify-between">
-                <span style="color:#94a3b8;">Tarif</span>
-                <span class="font-bold" style="color:#a78bfa;">{{ formatCurrency(selectedConsole.price_per_hour) }}/jam</span>
+                <span style="color:#94a3b8;">Tarif Normal</span>
+                <span :class="customerType === 'member' ? 'line-through text-slate-500' : 'font-bold text-[#a78bfa]'">
+                  {{ formatCurrency(selectedConsole.price_per_hour) }}/jam
+                </span>
               </div>
               <div v-if="form.duration_hours" class="flex justify-between">
                 <span style="color:#94a3b8;">Durasi</span>
                 <span class="text-white">{{ form.duration_hours }} jam</span>
               </div>
-              <div v-if="form.duration_hours" class="flex justify-between">
+              <div v-if="customerType === 'member'" class="flex justify-between pt-1.5 border-t border-slate-700/50">
+                <span class="text-emerald-400 font-semibold">Total Biaya Rental</span>
+                <span class="font-bold text-emerald-400">Rp 0 (Potong Kuota Member)</span>
+              </div>
+              <div v-else-if="form.duration_hours" class="flex justify-between">
                 <span style="color:#94a3b8;">Total Biaya Rental</span>
                 <span class="font-bold" style="color:#22d3ee;">
                   {{ formatCurrency(Math.round((selectedConsole.price_per_hour * form.duration_hours) / 1000) * 1000) }}
@@ -290,17 +425,18 @@ const typeColors: Record<string, string> = {
                 <span style="color:#94a3b8;">Tipe</span>
                 <span class="text-white">Open Time (meter jalan)</span>
               </div>
-              <div v-if="form.pay_upfront && form.duration_hours" class="flex justify-between pt-1.5 border-t border-slate-700/50">
+              <div v-if="form.pay_upfront && form.duration_hours && customerType !== 'member'" class="flex justify-between pt-1.5 border-t border-slate-700/50">
                 <span class="text-emerald-400 font-medium">Status Pembayaran</span>
                 <span class="font-bold text-emerald-400">Bayar di Awal ({{ form.payment_method.toUpperCase() }})</span>
               </div>
             </div>
           </div>
 
-          <button type="submit" :disabled="form.processing"
+          <button type="submit"
+            :disabled="form.processing || memberDurationExceeded || (customerType === 'member' && (!selectedMemberId || !form.duration_hours))"
             class="w-full py-4 rounded-xl text-white font-semibold text-base transition-all disabled:opacity-60 flex items-center justify-center gap-2 hover:opacity-90"
-            style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);">
-            <Play :size="16" /> Mulai Rental
+            :style="customerType === 'member' ? 'background:linear-gradient(135deg,#10b981,#059669);' : 'background:linear-gradient(135deg,#8b5cf6,#3b82f6);'">
+            <Play :size="16" /> {{ customerType === 'member' ? 'Mulai Rental Member' : 'Mulai Rental' }}
           </button>
         </div>
       </form>

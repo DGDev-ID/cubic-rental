@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Rental;
 use App\Models\Console;
+use App\Models\Member;
 use App\Models\RentalExtension;
 use App\Models\RentalFnbItem;
 use App\Models\FnbItem;
@@ -26,29 +27,57 @@ class RentalService
             $rentalType = 'duration';
         }
 
-        $isPayUpfront = !empty($data['pay_upfront']) && $durationHours;
+        // === MEMBER RENTAL ===
+        $memberId = !empty($data['member_id']) ? (int) $data['member_id'] : null;
+        $isMember = $memberId !== null;
         $initialRentalAmount = 0;
 
-        if ($isPayUpfront) {
-            $initialRentalAmount = round(($console->price_per_hour * $durationHours) / 1000) * 1000;
+        if ($isMember) {
+            $member = Member::findOrFail($memberId);
+            if ($member->remaining_minutes <= 0) {
+                throw new \Exception("Kuota member {$member->name} sudah habis. Silakan lakukan deposit terlebih dahulu.");
+            }
+            if (strtolower($console->type) !== strtolower($member->console_type)) {
+                throw new \Exception("Console {$console->name} ({$console->type}) tidak sesuai dengan tipe membership member ({$member->console_type}).");
+            }
+            if (!$durationHours) {
+                throw new \Exception("Member wajib memilih durasi bermain.");
+            }
+            $requestedMin = (int) round($durationHours * 60);
+            if ($requestedMin > $member->remaining_minutes) {
+                $remText = $member->sisa_jam;
+                throw new \Exception("Sisa kuota member hanya {$remText}. Durasi bermain tidak boleh melebihi sisa kuota, silakan perpanjang deposit atau kurangi durasi.");
+            }
+            $customerName = !empty($data['customer_name']) ? trim($data['customer_name']) : $member->name;
+            $initialRentalAmount = 0;
+        } else {
+            // Non-member: bayar di awal jika pay_upfront
+            $isPayUpfront = !empty($data['pay_upfront']) && $durationHours;
+            if ($isPayUpfront) {
+                $initialRentalAmount = round(($console->price_per_hour * $durationHours) / 1000) * 1000;
+            }
         }
 
+        $isPayUpfront = !$isMember && !empty($data['pay_upfront']) && $durationHours;
+
         $rental = Rental::create([
-            'transaction_code' => 'TRX-' . strtoupper(Str::random(8)),
-            'customer_name'    => $customerName,
-            'console_id'       => $data['console_id'],
-            'employee_id'      => $data['employee_id'],
-            'package_id'       => null,
-            'rental_type'      => $rentalType,
-            'status'           => 'running',
-            'started_at'       => Carbon::now(),
-            'scheduled_end_at' => $scheduledEnd,
-            'rental_amount'    => $initialRentalAmount,
-            'fnb_amount'       => 0,
-            'extra_amount'     => 0,
-            'total_amount'     => $initialRentalAmount,
-            'paid_amount'      => $isPayUpfront ? $initialRentalAmount : 0,
-            'notes'            => $data['notes'] ?? null,
+            'transaction_code'       => 'TRX-' . strtoupper(Str::random(8)),
+            'customer_name'          => $customerName,
+            'console_id'             => $data['console_id'],
+            'employee_id'            => $data['employee_id'],
+            'package_id'             => null,
+            'member_id'              => $memberId,
+            'member_deducted_minutes'=> null, // dihitung saat finish
+            'rental_type'            => $rentalType,
+            'status'                 => 'running',
+            'started_at'             => Carbon::now(),
+            'scheduled_end_at'       => $scheduledEnd,
+            'rental_amount'          => $initialRentalAmount,
+            'fnb_amount'             => 0,
+            'extra_amount'           => 0,
+            'total_amount'           => $initialRentalAmount,
+            'paid_amount'            => $isPayUpfront ? $initialRentalAmount : 0,
+            'notes'                  => $data['notes'] ?? null,
         ]);
 
         if ($isPayUpfront) {
@@ -185,17 +214,37 @@ class RentalService
             $billedMinutes = (int)(ceil(max($minutes, 60) / 10) * 10);
         }
 
-        $rentalAmount = round((($rental->console->price_per_hour / 60) * $billedMinutes) / 1000) * 1000;
-        $totalAmount  = $rentalAmount + $rental->fnb_amount + $rental->extra_amount;
-        $paidAmount   = (float) $rental->payments()->sum('amount');
+        // === MEMBER LOGIC ===
+        if ($rental->member_id) {
+            $member = Member::find($rental->member_id);
+            if ($member) {
+                // Potong kuota sesuai durasi yang dijadwalkan
+                $scheduledMinutes = $rental->scheduled_end_at
+                    ? $rental->started_at->diffInMinutes($rental->scheduled_end_at)
+                    : $rental->started_at->diffInMinutes($endTime);
 
-        $rental->rental_amount = $rentalAmount;
-        $rental->total_amount  = $totalAmount;
-        $rental->paid_amount   = $paidAmount;
-        $rental->ended_at      = $endTime;
+                $deducted = $member->deductMinutes((int)$scheduledMinutes);
+                $rental->member_deducted_minutes = $deducted;
+            }
+            // Rental amount untuk member SELALU Rp 0 (overtime tidak dikenakan biaya)
+            $rentalAmount = 0;
+            $rental->rental_amount = 0;
+            $rental->total_amount  = $rental->fnb_amount + $rental->extra_amount;
+        } else {
+            // Normal (non-member) rental
+            $rentalAmount = round((($rental->console->price_per_hour / 60) * $billedMinutes) / 1000) * 1000;
+            $rental->rental_amount = $rentalAmount;
+            $rental->total_amount  = $rentalAmount + $rental->fnb_amount + $rental->extra_amount;
+        }
 
-        // Jika sudah terbayar lunas (misal bayar di awal), status langsung 'paid' (tidak nyangkut di Menunggu Pembayaran)
-        if ($paidAmount >= $totalAmount && $paidAmount > 0) {
+        $paidAmount = (float) $rental->payments()->sum('amount');
+        $rental->paid_amount = $paidAmount;
+        $rental->ended_at    = $endTime;
+
+        if ($paidAmount >= $rental->total_amount && $paidAmount > 0) {
+            $rental->status = 'paid';
+        } elseif ($rental->total_amount == 0) {
+            // Member dengan tidak ada sisa bayar (FnB=0, no overtime)
             $rental->status = 'paid';
         } elseif ($paidAmount > 0) {
             $rental->status = 'half_paid';
@@ -204,7 +253,6 @@ class RentalService
         }
 
         $rental->save();
-
         $rental->console->update(['status' => 'available']);
 
         return $rental;
@@ -264,7 +312,7 @@ class RentalService
 
     public function getActiveRentals()
     {
-        return Rental::with(['console', 'employee', 'fnbItems.fnbItem', 'payments'])
+        return Rental::with(['console', 'employee', 'fnbItems.fnbItem', 'payments', 'member'])
             ->where(function ($q) {
                 // Masih aktif: status running, ATAU half_paid tapi belum selesai (DP mid-session)
                 $q->where('status', 'running')
@@ -290,7 +338,9 @@ class RentalService
 
                 // Calculate current rental amount
                 $currentRentalAmount = $rental->rental_amount;
-                if ($rental->rental_type === 'open_time' || $rental->rental_type === 'duration') {
+                if ($rental->member_id) {
+                    $currentRentalAmount = 0;
+                } elseif ($rental->rental_type === 'open_time' || $rental->rental_type === 'duration') {
                     if ($rental->scheduled_end_at) {
                         // Fixed duration booking — price based on the scheduled duration
                         $scheduledMinutes = $rental->started_at->diffInMinutes($rental->scheduled_end_at);
@@ -304,7 +354,7 @@ class RentalService
 
                 $paid = (float) $rental->payments->sum('amount');
                 $currentTotal = $currentRentalAmount + $rental->fnb_amount + $rental->extra_amount;
-                $isPaid = $paid >= $currentTotal && $paid > 0;
+                $isPaid = $paid >= $currentTotal && ($paid > 0 || $rental->member_id);
 
                 return array_merge($rental->toArray(), [
                     'duration_minutes'     => $durationMinutes,

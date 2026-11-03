@@ -6,6 +6,7 @@ use App\Http\Controllers\ConsoleController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\FnbController;
 use App\Http\Controllers\RentalController;
+use App\Http\Controllers\MemberController;
 use App\Http\Controllers\CashOutboundController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\FnbOrderController;
@@ -57,6 +58,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/rentals/{rental}/payment', [RentalController::class, 'payment'])->name('rentals.payment');
     Route::post('/rentals/{rental}/pay', [RentalController::class, 'pay'])->name('rentals.pay');
     Route::get('/rentals/{rental}/receipt', [RentalController::class, 'receipt'])->name('rentals.receipt');
+
+    // Members
+    Route::get('/members', [MemberController::class, 'index'])->name('members.index');
+    Route::post('/members', [MemberController::class, 'store'])->name('members.store');
+    Route::get('/members/{member}', [MemberController::class, 'show'])->name('members.show');
+    Route::post('/members/{member}/deposit', [MemberController::class, 'deposit'])->name('members.deposit');
 
     // Cash Outbound
     Route::resource('cash-outbounds', CashOutboundController::class)->except(['create', 'edit', 'show']);
