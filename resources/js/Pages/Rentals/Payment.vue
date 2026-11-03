@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
-import { Banknote, QrCode, Wallet } from 'lucide-vue-next'
+import { Banknote, QrCode, Wallet, UserCheck } from 'lucide-vue-next'
 
 const props = defineProps<{
   rental: {
@@ -10,10 +10,15 @@ const props = defineProps<{
     started_at: string; ended_at: string | null;
     rental_amount: number; fnb_amount: number; extra_amount: number; total_amount: number;
     console: { name: string; type: string }
+    employee?: { id: number; name: string }
+    employee_id?: number
+    cashier?: { id: number; name: string }
+    cashier_id?: number | null
     payments: { method: string; amount: number }[]
     paid_amount: number; remaining_amount: number
     is_running?: boolean
   }
+  employees?: { id: number; name: string }[]
 }>()
 
 function formatCurrency(v: number) {
@@ -26,15 +31,19 @@ function formatDt(d: string | null) {
 
 const method = ref<'cash' | 'qris'>('cash')
 const amount = ref(props.rental.remaining_amount)
+const cashierId = ref<number | null>(
+  props.rental.cashier_id || props.rental.employee_id || (props.employees && props.employees.length > 0 ? props.employees[0].id : null)
+)
 const submitting = ref(false)
 
 const change = computed(() => amount.value - props.rental.remaining_amount)
-const canSubmit = computed(() => amount.value >= 1 && !submitting.value)
+const canSubmit = computed(() => amount.value >= 1 && cashierId.value !== null && !submitting.value)
 
 function submit() {
   submitting.value = true
   router.post(route('rentals.pay', props.rental.id), {
-    payments: [{ method: method.value, amount: amount.value }]
+    payments: [{ method: method.value, amount: amount.value }],
+    cashier_id: cashierId.value,
   }, { onFinish: () => { submitting.value = false } })
 }
 </script>
@@ -70,6 +79,10 @@ function submit() {
           <div class="flex justify-between">
             <span style="color:#94a3b8;">Customer</span>
             <span class="text-white">{{ rental.customer_name }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span style="color:#94a3b8;">Operator Buka</span>
+            <span class="text-white">{{ rental.employee?.name || '-' }}</span>
           </div>
           <div class="flex justify-between">
             <span style="color:#94a3b8;">Console</span>
@@ -114,7 +127,27 @@ function submit() {
 
       <!-- Form Bayar -->
       <div class="rounded-xl p-5" style="background:#1a1a26; border:1px solid #2a2a3a;">
-        <h3 class="text-sm font-semibold text-white mb-4">Metode Pembayaran</h3>
+        <h3 class="text-sm font-semibold text-white mb-4">Informasi Pembayaran</h3>
+
+        <!-- Operator / Kasir Penerima Pembayaran -->
+        <div class="mb-5 p-3 rounded-xl bg-[#12121a] border border-[#2a2a3a]">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-semibold text-white flex items-center gap-1.5">
+              <UserCheck :size="15" class="text-amber-400" />
+              Kasir Penerima Pembayaran *
+            </label>
+            <span class="text-[11px] text-slate-400">Pilih operator yang menerima uang</span>
+          </div>
+          <select v-model="cashierId" required
+            class="w-full px-3 py-2.5 rounded-lg text-white outline-none font-medium text-sm transition-colors"
+            style="background:#1a1a26; border:1px solid #3a3a4a;">
+            <option v-for="e in employees" :key="e.id" :value="e.id">
+              {{ e.name }} {{ e.id === rental.employee_id ? '(Operator Sesi Ini)' : '' }}
+            </option>
+          </select>
+        </div>
+
+        <h4 class="text-xs font-semibold text-slate-300 mb-3">Metode Pembayaran</h4>
 
         <!-- Pilih metode -->
         <div class="grid grid-cols-2 gap-3 mb-5">

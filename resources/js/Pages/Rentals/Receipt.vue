@@ -9,6 +9,7 @@ defineProps<{
     rental_amount: number; fnb_amount: number; extra_amount: number; total_amount: number;
     console: { name: string; type: string }
     employee: { name: string }
+    cashier?: { name: string }
     fnb_items: { fnb_item?: { name: string }; fnb_item_name?: string; qty?: number; quantity?: number; unit_price: number; subtotal: number; addons: { name: string; price: number }[] }[]
     payments: { method: string; amount: number; created_at: string }[]
   }
@@ -55,6 +56,7 @@ function methodLabel(m: string) {
         <tr><td>Customer</td><td>: {{ rental.customer_name }}</td></tr>
         <tr><td>Console</td><td>: {{ rental.console.name }}</td></tr>
         <tr><td>Operator</td><td>: {{ rental.employee.name }}</td></tr>
+        <tr v-if="rental.cashier && rental.cashier.name !== rental.employee.name"><td>Kasir</td><td>: {{ rental.cashier.name }}</td></tr>
         <tr><td>Tipe</td><td style="text-transform: capitalize;">: {{ rental.rental_type ? rental.rental_type.replace('_', ' ') : 'Open Time' }}</td></tr>
         <tr><td>Mulai</td><td>: {{ formatDt(rental.started_at) }}</td></tr>
         <tr><td>Selesai</td><td>: {{ formatDt(rental.ended_at) }}</td></tr>

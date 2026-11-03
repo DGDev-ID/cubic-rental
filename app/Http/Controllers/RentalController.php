@@ -58,7 +58,7 @@ class RentalController extends Controller
 
     public function show(Rental $rental): Response
     {
-        $rental->load(['console', 'employee', 'fnbItems.fnbItem', 'extensions', 'payments']);
+        $rental->load(['console', 'employee', 'cashier', 'fnbItems.fnbItem', 'extensions', 'payments']);
 
         $now = \Carbon\Carbon::now();
         $durationMinutes = $rental->started_at->diffInMinutes($now);
@@ -168,7 +168,7 @@ class RentalController extends Controller
 
     public function payment(Rental $rental): Response
     {
-        $rental->load(['console', 'employee', 'fnbItems.fnbItem', 'extensions', 'payments']);
+        $rental->load(['console', 'employee', 'cashier', 'fnbItems.fnbItem', 'extensions', 'payments']);
         $paidAmount = $rental->payments->sum('amount');
         $total = $rental->total_amount ?? 0;
         return Inertia::render('Rentals/Payment', [
@@ -177,12 +177,13 @@ class RentalController extends Controller
                 'remaining_amount' => max(0, $total - $paidAmount),
                 'is_running'       => $rental->status === 'running' || ($rental->status === 'half_paid' && $rental->ended_at === null),
             ]),
+            'employees' => Employee::where('status', 'active')->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
     public function pay(PaymentRequest $request, Rental $rental): RedirectResponse
     {
-        $this->rentalService->pay($rental, $request->payments);
+        $this->rentalService->pay($rental, $request->payments, $request->cashier_id);
         $rental->refresh();
 
         if ($rental->status === 'half_paid' && $rental->ended_at === null) {
@@ -198,7 +199,7 @@ class RentalController extends Controller
 
     public function receipt(Rental $rental): Response
     {
-        $rental->load(['console', 'employee', 'fnbItems.fnbItem', 'extensions', 'payments']);
+        $rental->load(['console', 'employee', 'cashier', 'fnbItems.fnbItem', 'extensions', 'payments']);
         return Inertia::render('Rentals/Receipt', [
             'rental'     => $rental,
             'store_name' => config('app.name'),
@@ -207,7 +208,7 @@ class RentalController extends Controller
 
     public function history(Request $request): Response
     {
-        $query = Rental::with(['console', 'employee', 'payments', 'fnbItems.fnbItem', 'extensions', 'member'])
+        $query = Rental::with(['console', 'employee', 'cashier', 'payments', 'fnbItems.fnbItem', 'extensions', 'member'])
             ->whereIn('status', ['finished', 'paid', 'half_paid', 'cancelled']);
 
         $fnbQuery = \App\Models\FnbOrder::with(['employee', 'console', 'items.fnbItem'])
@@ -353,7 +354,7 @@ class RentalController extends Controller
 
     public function exportExcel(Request $request)
     {
-        $query = Rental::with(['console', 'employee', 'fnbItems.fnbItem', 'payments', 'member'])
+        $query = Rental::with(['console', 'employee', 'cashier', 'fnbItems.fnbItem', 'payments', 'member'])
             ->whereIn('status', ['finished', 'paid', 'half_paid']);
 
         $fnbQuery = \App\Models\FnbOrder::with(['console', 'employee', 'items.fnbItem'])
@@ -393,8 +394,8 @@ class RentalController extends Controller
             $fnbQuery->where('payment_method', $request->payment_method);
         }
 
-        $rentals   = $query->orderByDesc('started_at')->get();
-        $fnbOrders = $fnbQuery->orderByDesc('paid_at')->get();
+        $rentals   = $query->orderBy('started_at', 'asc')->get();
+        $fnbOrders = $fnbQuery->orderBy('paid_at', 'asc')->get();
 
         // Build period label for title
         $periodLabel = 'Semua Waktu';
@@ -499,7 +500,9 @@ class RentalController extends Controller
             $fnbQtys = [];
             $fnbPrices = [];
             foreach ($r->fnbItems as $item) {
-                $fnbNames[]  = $item->fnbItem?->name ?? 'FnB';
+                $baseName = $item->fnbItem?->name ?? 'FnB';
+                $addonNames = !empty($item->addons) ? collect($item->addons)->pluck('name')->filter()->join(', ') : '';
+                $fnbNames[]  = $addonNames ? "{$baseName} (+ {$addonNames})" : $baseName;
                 $fnbQtys[]   = $item->qty;
                 $fnbPrices[] = number_format((float) $item->subtotal, 0, ',', '.');
             }
@@ -562,7 +565,7 @@ class RentalController extends Controller
             $sheet->setCellValue("J{$row}", $fnbAmount);
             $sheet->setCellValue("L{$row}", $grandTotal);
             $sheet->setCellValue("M{$row}", $payLabel);
-            $sheet->setCellValue("N{$row}", $r->employee->name ?? '-');
+            $sheet->setCellValue("N{$row}", $r->cashier->name ?? $r->employee->name ?? '-');
             $sheet->setCellValue("O{$row}", $cashAmount);
             $sheet->setCellValue("P{$row}", $qrisAmount);
 
@@ -608,7 +611,9 @@ class RentalController extends Controller
             $fnbQtys = [];
             $fnbPrices = [];
             foreach ($f->items as $item) {
-                $fnbNames[]  = $item->fnbItem?->name ?? 'FnB';
+                $baseName = $item->fnbItem?->name ?? 'FnB';
+                $addonNames = !empty($item->addons) ? collect($item->addons)->pluck('name')->filter()->join(', ') : '';
+                $fnbNames[]  = $addonNames ? "{$baseName} (+ {$addonNames})" : $baseName;
                 $fnbQtys[]   = $item->qty;
                 $fnbPrices[] = number_format((float) $item->subtotal, 0, ',', '.');
             }

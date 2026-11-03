@@ -12,8 +12,9 @@ interface RentalRow {
   notes?: string | null;
   console: { name: string; type: string; price_per_hour?: number }
   employee: { name: string }
+  cashier?: { name: string }
   payments: { method: string; amount: number; notes?: string }[]
-  fnb_items?: { id: number; qty: number; unit_price: number; subtotal: number; fnb_item?: { name: string } }[]
+  fnb_items?: { id: number; qty: number; unit_price: number; subtotal: number; fnb_item?: { name: string }; addons?: { name: string; price: number }[] }[]
   extensions?: { id: number; added_minutes: number; additional_price: number }[]
 }
 
@@ -834,7 +835,12 @@ function confirmDelete() {
         </div>
         <div>
           <span class="text-slate-400">Operator</span>
-          <p class="text-white font-semibold mt-0.5">{{ selectedDetail.employee?.name ?? '(dihapus)' }}</p>
+          <p class="text-white font-semibold mt-0.5">
+            {{ selectedDetail.employee?.name ?? '(dihapus)' }}
+            <span v-if="selectedDetail.cashier && selectedDetail.cashier.name !== selectedDetail.employee?.name" class="text-emerald-400 text-[11px] block font-normal">
+              Kasir: {{ selectedDetail.cashier.name }}
+            </span>
+          </p>
         </div>
         <div>
           <span class="text-slate-400">Mulai</span>
@@ -860,9 +866,14 @@ function confirmDelete() {
           <span class="flex items-center gap-1.5 text-emerald-400"><UtensilsCrossed :size="13" /> Pesanan F&B</span>
           <span>{{ formatCurrency(selectedDetail.fnb_amount || 0) }}</span>
         </div>
-        <div class="space-y-1 text-xs">
-          <div v-for="fi in selectedDetail.fnb_items" :key="fi.id" class="flex justify-between items-center text-slate-300">
-            <span>{{ fi.fnb_item?.name || 'Item F&B' }} <span class="text-slate-400">x{{ fi.qty }}</span></span>
+        <div class="space-y-1.5 text-xs">
+          <div v-for="fi in selectedDetail.fnb_items" :key="fi.id" class="flex justify-between items-start text-slate-300 py-0.5">
+            <div>
+              <p class="text-white font-medium">{{ fi.fnb_item?.name || 'Item F&B' }} <span class="text-slate-400 font-normal">x{{ fi.qty }}</span></p>
+              <p v-if="fi.addons && fi.addons.length" class="text-[11px] text-emerald-400">
+                + {{ fi.addons.map((a: any) => a.name).join(', ') }}
+              </p>
+            </div>
             <span class="font-medium text-white">{{ formatCurrency(fi.subtotal) }}</span>
           </div>
         </div>

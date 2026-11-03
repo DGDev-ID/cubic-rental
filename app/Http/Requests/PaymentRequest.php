@@ -14,6 +14,7 @@ class PaymentRequest extends FormRequest
             'payments.*.method' => 'required|in:cash,qris',
             'payments.*.amount' => 'required|numeric|min:1',
             'payments.*.notes'  => 'nullable|string|max:300',
+            'cashier_id'        => 'nullable|exists:employees,id',
         ];
     }
 }

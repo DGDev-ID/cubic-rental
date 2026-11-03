@@ -258,8 +258,12 @@ class RentalService
         return $rental;
     }
 
-    public function pay(Rental $rental, array $payments): void
+    public function pay(Rental $rental, array $payments, ?int $cashierId = null): void
     {
+        if ($cashierId) {
+            $rental->cashier_id = $cashierId;
+        }
+
         foreach ($payments as $payment) {
             $rental->payments()->create([
                 'method' => $payment['method'],

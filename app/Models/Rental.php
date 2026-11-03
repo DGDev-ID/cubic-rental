@@ -14,7 +14,7 @@ class Rental extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'transaction_code', 'customer_name', 'console_id', 'employee_id',
+        'transaction_code', 'customer_name', 'console_id', 'employee_id', 'cashier_id',
         'package_id', 'member_id', 'member_deducted_minutes',
         'rental_type', 'status', 'started_at', 'ended_at',
         'scheduled_end_at', 'rental_amount', 'fnb_amount', 'extra_amount',
@@ -40,6 +40,11 @@ class Rental extends Model
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function cashier(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'cashier_id');
     }
 
     public function package(): BelongsTo
