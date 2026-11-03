@@ -244,22 +244,28 @@ class RentalController extends Controller
         }
 
         // Filtered summary (revenue & customers for the current filter, excluding cancelled)
-        $summaryRevenue = $query->clone()->whereIn('status', ['finished', 'paid', 'half_paid'])->sum('total_amount')
-            + $fnbQuery->clone()->sum('total_amount');
-        $summaryCustomers = $query->clone()->whereIn('status', ['finished', 'paid', 'half_paid'])->count()
-            + $fnbQuery->clone()->count();
+        $rentalQuerySummary = $query->clone()->whereIn('status', ['finished', 'paid', 'half_paid']);
+        $fnbQuerySummary    = $fnbQuery->clone();
+
+        $summaryRentalRevenue = (float) ($rentalQuerySummary->clone()->sum('rental_amount') + $rentalQuerySummary->clone()->sum('extra_amount'));
+        $summaryFnbFromRental = (float) $rentalQuerySummary->clone()->sum('fnb_amount');
+        $summaryFnbStandalone = (float) $fnbQuerySummary->clone()->sum('total_amount');
+        $summaryFnbRevenue    = $summaryFnbFromRental + $summaryFnbStandalone;
+        $summaryRevenue       = $summaryRentalRevenue + $summaryFnbRevenue;
+
+        $summaryCustomers = $rentalQuerySummary->count() + $fnbQuerySummary->count();
 
         // Today stats (always today, unaffected by filters)
         $today = now()->toDateString();
-        $todayRevenue = Rental::whereIn('status', ['finished', 'paid', 'half_paid'])
-                ->whereDate('started_at', $today)->sum('total_amount')
+        $todayRentals = Rental::whereIn('status', ['finished', 'paid', 'half_paid'])->whereDate('started_at', $today);
+        $todayRevenue = $todayRentals->sum('total_amount')
             + \App\Models\FnbOrder::where('status', 'paid')->whereDate('paid_at', $today)->sum('total_amount');
         $todayCustomers = Rental::whereDate('started_at', $today)->count()
             + \App\Models\FnbOrder::where('status', 'paid')->whereDate('paid_at', $today)->count();
 
         // Yearly stats (all available years)
         $yRentals = Rental::whereIn('status', ['finished', 'paid', 'half_paid'])
-            ->selectRaw('EXTRACT(YEAR FROM started_at) as year, SUM(total_amount) as revenue, COUNT(*) as customers')
+            ->selectRaw('EXTRACT(YEAR FROM started_at) as year, SUM(COALESCE(rental_amount, 0) + COALESCE(extra_amount, 0)) as rental_revenue, SUM(COALESCE(fnb_amount, 0)) as fnb_revenue, SUM(total_amount) as revenue, COUNT(*) as customers')
             ->groupByRaw('EXTRACT(YEAR FROM started_at)')
             ->orderByRaw('EXTRACT(YEAR FROM started_at)')
             ->get()->keyBy(fn($r) => (int) $r->year);
@@ -271,16 +277,18 @@ class RentalController extends Controller
         $allYears = $yRentals->keys()->merge($yFnb->keys())->unique()->sort()->values();
         if ($allYears->isEmpty()) $allYears = collect([now()->year]);
         $yearlyStats = $allYears->map(fn($yr) => [
-            'year'      => (int) $yr,
-            'revenue'   => (float) (($yRentals->get($yr)?->revenue ?? 0) + ($yFnb->get($yr)?->revenue ?? 0)),
-            'customers' => (int) (($yRentals->get($yr)?->customers ?? 0) + ($yFnb->get($yr)?->customers ?? 0)),
+            'year'           => (int) $yr,
+            'revenue'        => (float) (($yRentals->get($yr)?->revenue ?? 0) + ($yFnb->get($yr)?->revenue ?? 0)),
+            'rental_revenue' => (float) ($yRentals->get($yr)?->rental_revenue ?? 0),
+            'fnb_revenue'    => (float) (($yRentals->get($yr)?->fnb_revenue ?? 0) + ($yFnb->get($yr)?->revenue ?? 0)),
+            'customers'      => (int) (($yRentals->get($yr)?->customers ?? 0) + ($yFnb->get($yr)?->customers ?? 0)),
         ])->values();
 
         // Monthly stats for the selected year
         $statsYear = (int) ($request->stats_year ?? now()->year);
         $mRentals = Rental::whereIn('status', ['finished', 'paid', 'half_paid'])
             ->whereYear('started_at', $statsYear)
-            ->selectRaw('EXTRACT(MONTH FROM started_at) as month, SUM(total_amount) as revenue, COUNT(*) as customers')
+            ->selectRaw('EXTRACT(MONTH FROM started_at) as month, SUM(COALESCE(rental_amount, 0) + COALESCE(extra_amount, 0)) as rental_revenue, SUM(COALESCE(fnb_amount, 0)) as fnb_revenue, SUM(total_amount) as revenue, COUNT(*) as customers')
             ->groupByRaw('EXTRACT(MONTH FROM started_at)')
             ->get()->keyBy(fn($r) => (int) $r->month);
         $mFnb = \App\Models\FnbOrder::where('status', 'paid')
@@ -289,9 +297,11 @@ class RentalController extends Controller
             ->groupByRaw('EXTRACT(MONTH FROM paid_at)')
             ->get()->keyBy(fn($r) => (int) $r->month);
         $monthlyStats = collect(range(1, 12))->map(fn($m) => [
-            'month'     => $m,
-            'revenue'   => (float) (($mRentals->get($m)?->revenue ?? 0) + ($mFnb->get($m)?->revenue ?? 0)),
-            'customers' => (int) (($mRentals->get($m)?->customers ?? 0) + ($mFnb->get($m)?->customers ?? 0)),
+            'month'          => $m,
+            'revenue'        => (float) (($mRentals->get($m)?->revenue ?? 0) + ($mFnb->get($m)?->revenue ?? 0)),
+            'rental_revenue' => (float) ($mRentals->get($m)?->rental_revenue ?? 0),
+            'fnb_revenue'    => (float) (($mRentals->get($m)?->fnb_revenue ?? 0) + ($mFnb->get($m)?->revenue ?? 0)),
+            'customers'      => (int) (($mRentals->get($m)?->customers ?? 0) + ($mFnb->get($m)?->customers ?? 0)),
         ])->values();
 
         // Daily stats for the selected year+month
@@ -300,7 +310,7 @@ class RentalController extends Controller
         $dRentals = Rental::whereIn('status', ['finished', 'paid', 'half_paid'])
             ->whereYear('started_at', $statsYear)
             ->whereMonth('started_at', $statsMonth)
-            ->selectRaw('EXTRACT(DAY FROM started_at) as day, SUM(total_amount) as revenue, COUNT(*) as customers')
+            ->selectRaw('EXTRACT(DAY FROM started_at) as day, SUM(COALESCE(rental_amount, 0) + COALESCE(extra_amount, 0)) as rental_revenue, SUM(COALESCE(fnb_amount, 0)) as fnb_revenue, SUM(total_amount) as revenue, COUNT(*) as customers')
             ->groupByRaw('EXTRACT(DAY FROM started_at)')
             ->get()->keyBy(fn($r) => (int) $r->day);
         $dFnb = \App\Models\FnbOrder::where('status', 'paid')
@@ -310,26 +320,30 @@ class RentalController extends Controller
             ->groupByRaw('EXTRACT(DAY FROM paid_at)')
             ->get()->keyBy(fn($r) => (int) $r->day);
         $dailyStats = collect(range(1, $daysInMonth))->map(fn($d) => [
-            'day'       => $d,
-            'revenue'   => (float) (($dRentals->get($d)?->revenue ?? 0) + ($dFnb->get($d)?->revenue ?? 0)),
-            'customers' => (int) (($dRentals->get($d)?->customers ?? 0) + ($dFnb->get($d)?->customers ?? 0)),
+            'day'            => $d,
+            'revenue'        => (float) (($dRentals->get($d)?->revenue ?? 0) + ($dFnb->get($d)?->revenue ?? 0)),
+            'rental_revenue' => (float) ($dRentals->get($d)?->rental_revenue ?? 0),
+            'fnb_revenue'    => (float) (($dRentals->get($d)?->fnb_revenue ?? 0) + ($dFnb->get($d)?->revenue ?? 0)),
+            'customers'      => (int) (($dRentals->get($d)?->customers ?? 0) + ($dFnb->get($d)?->customers ?? 0)),
         ])->values();
 
         return Inertia::render('Rentals/History', [
-            'rentals'           => $query->orderByDesc('started_at')->paginate(20)->withQueryString(),
-            'fnb_orders'        => $fnbQuery->orderByDesc('paid_at')->paginate(20, ['*'], 'fnb_page')->withQueryString(),
-            'employees'         => Employee::orderBy('name')->get(),
-            'consoles'          => Console::orderBy('name')->get(),
-            'filters'           => $request->only(['search', 'date', 'month', 'year', 'employee_id', 'console_id', 'payment_method']),
-            'today_revenue'     => (float) $todayRevenue,
-            'today_customers'   => (int) $todayCustomers,
-            'summary_revenue'   => (float) $summaryRevenue,
-            'summary_customers' => (int) $summaryCustomers,
-            'yearly_stats'      => $yearlyStats,
-            'monthly_stats'     => $monthlyStats,
-            'daily_stats'       => $dailyStats,
-            'stats_year'        => $statsYear,
-            'stats_month'       => $statsMonth,
+            'rentals'                => $query->orderByDesc('started_at')->paginate(20)->withQueryString(),
+            'fnb_orders'             => $fnbQuery->orderByDesc('paid_at')->paginate(20, ['*'], 'fnb_page')->withQueryString(),
+            'employees'              => Employee::orderBy('name')->get(),
+            'consoles'               => Console::orderBy('name')->get(),
+            'filters'                => $request->only(['search', 'date', 'month', 'year', 'employee_id', 'console_id', 'payment_method']),
+            'today_revenue'          => (float) $todayRevenue,
+            'today_customers'        => (int) $todayCustomers,
+            'summary_revenue'        => (float) $summaryRevenue,
+            'summary_rental_revenue' => (float) $summaryRentalRevenue,
+            'summary_fnb_revenue'    => (float) $summaryFnbRevenue,
+            'summary_customers'      => (int) $summaryCustomers,
+            'yearly_stats'           => $yearlyStats,
+            'monthly_stats'          => $monthlyStats,
+            'daily_stats'            => $dailyStats,
+            'stats_year'             => $statsYear,
+            'stats_month'            => $statsMonth,
         ]);
     }
 

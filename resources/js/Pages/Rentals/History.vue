@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { router, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import GamingModal from '@/Components/GamingModal.vue'
-import { Download, TrendingUp, Users, BarChart2, ChevronLeft, ChevronRight, Filter, X, Calendar, StickyNote, Trash2 } from 'lucide-vue-next'
+import { Download, TrendingUp, Users, BarChart2, ChevronLeft, ChevronRight, Filter, X, Calendar, StickyNote, Trash2, Gamepad2, UtensilsCrossed, RotateCcw } from 'lucide-vue-next'
 
 interface RentalRow {
   id: number; transaction_code: string; customer_name: string; rental_type: string;
@@ -23,10 +23,12 @@ const props = defineProps<{
   today_revenue: number
   today_customers: number
   summary_revenue: number
+  summary_rental_revenue?: number
+  summary_fnb_revenue?: number
   summary_customers: number
-  yearly_stats: { year: number; revenue: number; customers: number }[]
-  monthly_stats: { month: number; revenue: number; customers: number }[]
-  daily_stats: { day: number; revenue: number; customers: number }[]
+  yearly_stats: { year: number; revenue: number; rental_revenue?: number; fnb_revenue?: number; customers: number }[]
+  monthly_stats: { month: number; revenue: number; rental_revenue?: number; fnb_revenue?: number; customers: number }[]
+  daily_stats: { day: number; revenue: number; rental_revenue?: number; fnb_revenue?: number; customers: number }[]
   stats_year: number
   stats_month: number
 }>()
@@ -89,6 +91,27 @@ const filterLabel = computed(() => {
   if (filters.value.search) parts.push(`"${filters.value.search}"`)
   return parts.length ? parts.join(', ') : null
 })
+
+const activePeriodLabel = computed(() => {
+  if (filters.value.date) {
+    const d = new Date(filters.value.date + 'T00:00:00')
+    return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+  }
+  if (filters.value.month) {
+    const [y, m] = filters.value.month.split('-')
+    return `${monthNames[parseInt(m) - 1]} ${y}`
+  }
+  if (filters.value.year) {
+    return `Tahun ${filters.value.year}`
+  }
+  return 'Semua Periode (Keseluruhan)'
+})
+
+function clearPeriodFilter() {
+  filters.value.date = ''
+  filters.value.month = ''
+  filters.value.year = ''
+}
 
 // --- Year view ---
 function selectYear(y: number) {
@@ -390,14 +413,19 @@ function confirmDelete() {
         <button
           v-for="stat in yearly_stats" :key="stat.year"
           @click="selectYear(stat.year)"
-          class="px-4 py-3 rounded-xl text-left transition-all min-w-[90px]"
+          class="px-4 py-3 rounded-xl text-left transition-all min-w-[100px]"
           :style="isSelectedYear(stat.year)
             ? 'background:rgba(139,92,246,.25); border:1px solid rgba(139,92,246,.5);'
             : 'background:#12121a; border:1px solid #2a2a3a;'">
           <p class="text-xs font-semibold mb-1"
             :style="isSelectedYear(stat.year) ? 'color:#c4b5fd;' : 'color:#64748b;'">{{ stat.year }}</p>
           <p class="text-xs font-bold text-white leading-tight">{{ formatCurrencyShort(stat.revenue) }}</p>
-          <p class="text-xs mt-0.5" style="color:#94a3b8;">{{ stat.customers }} cust</p>
+          <div v-if="stat.rental_revenue !== undefined || stat.fnb_revenue !== undefined" class="text-[10px] mt-1 flex items-center gap-1.5 text-slate-400">
+            <span class="text-sky-300" title="Rental Saja">R:{{ formatCurrencyShort(stat.rental_revenue ?? 0).replace('Rp ', '') }}</span>
+            <span class="text-slate-600">•</span>
+            <span class="text-emerald-300" title="FnB Saja">F:{{ formatCurrencyShort(stat.fnb_revenue ?? 0).replace('Rp ', '') }}</span>
+          </div>
+          <p class="text-[10px] mt-0.5" style="color:#94a3b8;">{{ stat.customers }} cust</p>
         </button>
         <div v-if="!yearly_stats.length" class="text-xs py-2" style="color:#64748b;">Belum ada data</div>
       </div>
@@ -414,7 +442,12 @@ function confirmDelete() {
           <p class="text-xs font-semibold mb-1"
             :style="isSelectedMonth(stat.month) ? 'color:#c4b5fd;' : 'color:#64748b;'">{{ monthNames[stat.month - 1] }}</p>
           <p class="text-xs font-bold text-white leading-tight">{{ formatCurrencyShort(stat.revenue) }}</p>
-          <p class="text-xs mt-0.5" style="color:#94a3b8;">{{ stat.customers }} cust</p>
+          <div v-if="stat.rental_revenue !== undefined || stat.fnb_revenue !== undefined" class="text-[10px] mt-1 flex items-center gap-1.5 text-slate-400">
+            <span class="text-sky-300" title="Rental Saja">R:{{ formatCurrencyShort(stat.rental_revenue ?? 0).replace('Rp ', '') }}</span>
+            <span class="text-slate-600">•</span>
+            <span class="text-emerald-300" title="FnB Saja">F:{{ formatCurrencyShort(stat.fnb_revenue ?? 0).replace('Rp ', '') }}</span>
+          </div>
+          <p class="text-[10px] mt-0.5" style="color:#94a3b8;">{{ stat.customers }} cust</p>
         </button>
       </div>
 
@@ -430,8 +463,73 @@ function confirmDelete() {
           <p class="text-xs font-bold mb-0.5"
             :style="isSelectedDay(stat.day) ? 'color:#c4b5fd;' : 'color:#64748b;'">{{ stat.day }}</p>
           <p class="text-[10px] font-semibold text-white leading-tight truncate">{{ stat.revenue > 0 ? formatCurrencyShort(stat.revenue) : '-' }}</p>
+          <div v-if="stat.revenue > 0" class="text-[9px] mt-0.5 flex items-center gap-1 truncate text-slate-400">
+            <span class="text-sky-300">R:{{ formatCurrencyShort(stat.rental_revenue ?? 0).replace('Rp ', '') }}</span>
+            <span class="text-emerald-300">F:{{ formatCurrencyShort(stat.fnb_revenue ?? 0).replace('Rp ', '') }}</span>
+          </div>
           <p class="text-[10px] mt-0.5" style="color:#94a3b8;">{{ stat.customers > 0 ? stat.customers + 'c' : '' }}</p>
         </button>
+      </div>
+
+      <!-- Breakdown Omset Periode Terpilih -->
+      <div v-if="showSummary" class="mt-4 pt-4 border-t border-slate-800">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400 font-medium">Ringkasan Omset Periode:</span>
+            <span class="text-xs px-2.5 py-1 rounded-lg font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1.5">
+              <Calendar :size="12" /> {{ activePeriodLabel }}
+            </span>
+            <button v-if="filters.year || filters.month || filters.date" @click="clearPeriodFilter"
+              class="text-[11px] text-slate-400 hover:text-red-400 transition-colors underline flex items-center gap-1 ml-1"
+              title="Reset ke semua periode">
+              <RotateCcw :size="11" /> Reset Periode
+            </button>
+          </div>
+          <span class="text-xs text-slate-400">
+            Total <strong class="text-white">{{ summary_customers }}</strong> Transaksi
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <!-- Total Omset (Rental + FnB) -->
+          <div class="rounded-xl p-3.5 flex flex-col justify-between"
+            style="background:linear-gradient(135deg, rgba(139,92,246,0.18) 0%, rgba(139,92,246,0.06) 100%); border:1px solid rgba(139,92,246,0.4);">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-semibold text-purple-200 flex items-center gap-1.5">
+                <BarChart2 :size="14" class="text-purple-400" /> Total Omset (Rental + FnB)
+              </span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-purple-500/25 text-purple-300">Gabungan</span>
+            </div>
+            <p class="text-xl font-bold" style="color:#c4b5fd;">{{ formatCurrency(summary_revenue) }}</p>
+            <p class="text-[11px] text-slate-400 mt-1">Gabungan seluruh transaksi rental console & pesanan FnB</p>
+          </div>
+
+          <!-- Total Rental Saja -->
+          <div class="rounded-xl p-3.5 flex flex-col justify-between"
+            style="background:linear-gradient(135deg, rgba(56,189,248,0.18) 0%, rgba(56,189,248,0.06) 100%); border:1px solid rgba(56,189,248,0.4);">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-semibold text-sky-200 flex items-center gap-1.5">
+                <Gamepad2 :size="14" class="text-sky-400" /> Total Rental Saja
+              </span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-sky-500/25 text-sky-300">Console</span>
+            </div>
+            <p class="text-xl font-bold text-sky-400">{{ formatCurrency(summary_rental_revenue ?? 0) }}</p>
+            <p class="text-[11px] text-slate-400 mt-1">Hanya biaya durasi bermain & extra waktu PS</p>
+          </div>
+
+          <!-- Total FnB Saja -->
+          <div class="rounded-xl p-3.5 flex flex-col justify-between"
+            style="background:linear-gradient(135deg, rgba(52,211,153,0.18) 0%, rgba(52,211,153,0.06) 100%); border:1px solid rgba(52,211,153,0.4);">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-semibold text-emerald-200 flex items-center gap-1.5">
+                <UtensilsCrossed :size="14" class="text-emerald-400" /> Total FnB Saja
+              </span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-emerald-500/25 text-emerald-300">FnB</span>
+            </div>
+            <p class="text-xl font-bold text-emerald-400">{{ formatCurrency(summary_fnb_revenue ?? 0) }}</p>
+            <p class="text-[11px] text-slate-400 mt-1">Penjualan makanan & minuman (room + kasir)</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -465,21 +563,29 @@ function confirmDelete() {
     </div>
 
     <!-- Filtered Summary -->
-    <div v-if="hasActiveFilter" class="rounded-xl px-4 py-3 mb-4 flex items-center justify-between gap-4"
+    <div v-if="hasActiveFilter" class="rounded-xl px-4 py-3 mb-4 flex flex-wrap items-center justify-between gap-4"
       style="background:rgba(139,92,246,.08); border:1px solid rgba(139,92,246,.3);">
       <div class="flex items-center gap-2 min-w-0">
         <Filter :size="13" style="color:#a78bfa;" />
-        <span class="text-xs truncate" style="color:#94a3b8;">
-          {{ filterLabel ? filterLabel : 'Filter aktif' }}
+        <span class="text-xs truncate font-medium" style="color:#94a3b8;">
+          Filter aktif: <strong class="text-white">{{ filterLabel ? filterLabel : 'Periode' }}</strong>
         </span>
       </div>
-      <div class="flex items-center gap-5 shrink-0">
+      <div class="flex items-center gap-5 shrink-0 flex-wrap">
         <div class="text-right">
-          <p class="text-xs" style="color:#64748b;">Omset</p>
-          <p class="text-sm font-bold" style="color:#a78bfa;">{{ formatCurrency(summary_revenue) }}</p>
+          <p class="text-[11px]" style="color:#94a3b8;">Total Rental Saja</p>
+          <p class="text-sm font-bold text-sky-400">{{ formatCurrency(summary_rental_revenue ?? 0) }}</p>
         </div>
         <div class="text-right">
-          <p class="text-xs" style="color:#64748b;">Transaksi</p>
+          <p class="text-[11px]" style="color:#94a3b8;">Total FnB Saja</p>
+          <p class="text-sm font-bold text-emerald-400">{{ formatCurrency(summary_fnb_revenue ?? 0) }}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-[11px]" style="color:#c4b5fd;">Total Omset (Rental + FnB)</p>
+          <p class="text-sm font-bold" style="color:#a78bfa;">{{ formatCurrency(summary_revenue) }}</p>
+        </div>
+        <div class="text-right pl-3 border-l border-slate-700/60">
+          <p class="text-[11px]" style="color:#64748b;">Transaksi</p>
           <p class="text-sm font-bold text-white">{{ summary_customers }}</p>
         </div>
       </div>
