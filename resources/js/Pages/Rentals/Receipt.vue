@@ -106,26 +106,153 @@ function methodLabel(m: string) {
 </template>
 
 <style>
-.receipt-container { max-width: 400px; margin: 0 auto; padding: 1rem; font-family: 'Courier New', monospace; }
-.receipt-paper { background: white; color: #000; padding: 1rem; border-radius: 8px; font-size: 12px; line-height: 1.6; }
-.receipt-header { text-align: center; }
-.receipt-header h1 { font-size: 16px; font-weight: bold; margin: 0; }
-.receipt-header p { margin: 2px 0; font-size: 11px; }
-.receipt-divider { font-size: 11px; color: #666; margin: 6px 0; letter-spacing: -1px; }
-.receipt-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-.receipt-table td { padding: 1px 2px; vertical-align: top; }
-.receipt-section-title { font-weight: bold; font-size: 11px; margin: 4px 0 2px; }
-.receipt-item { margin: 2px 0; font-size: 11px; }
-.receipt-item-name { font-weight: 600; }
-.receipt-addon { padding-left: 8px; color: #666; }
-.receipt-item-price { text-align: right; }
-.receipt-total-row td { padding-top: 4px; border-top: 1px solid #000; }
-.text-right { text-align: right; }
-.receipt-footer { text-align: center; font-size: 11px; margin-top: 4px; }
+.receipt-container { 
+  max-width: 400px; 
+  margin: 0 auto; 
+  padding: 1rem; 
+  font-family: 'Consolas', 'Courier New', Courier, monospace; 
+  color: #000;
+}
+.receipt-paper { 
+  background: white; 
+  color: #000; 
+  padding: 1.25rem 1rem; 
+  border-radius: 8px; 
+  font-size: 13px; 
+  font-weight: 700; 
+  line-height: 1.5; 
+}
+.receipt-header { 
+  text-align: center; 
+  color: #000;
+}
+.receipt-header h1 { 
+  font-size: 18px; 
+  font-weight: 900; 
+  margin: 0; 
+  color: #000;
+  letter-spacing: 0.5px;
+}
+.receipt-header p { 
+  margin: 2px 0; 
+  font-size: 12px; 
+  font-weight: 700;
+  color: #000;
+}
+.receipt-divider { 
+  font-size: 12px; 
+  font-weight: 900; 
+  color: #000; 
+  margin: 6px 0; 
+  letter-spacing: -0.5px; 
+  overflow: hidden; 
+  white-space: nowrap; 
+}
+.receipt-table { 
+  width: 100%; 
+  border-collapse: collapse; 
+  font-size: 12px; 
+  color: #000;
+  font-weight: 700;
+}
+.receipt-table td { 
+  padding: 2px 1px; 
+  vertical-align: top; 
+  color: #000;
+  font-weight: 700;
+}
+.receipt-section-title { 
+  font-weight: 900; 
+  font-size: 12px; 
+  margin: 6px 0 2px; 
+  color: #000;
+  letter-spacing: 0.5px;
+}
+.receipt-item { 
+  margin: 3px 0; 
+  font-size: 12px; 
+  color: #000;
+  font-weight: 700;
+}
+.receipt-item-name { 
+  font-weight: 800; 
+  color: #000;
+}
+.receipt-addon { 
+  padding-left: 8px; 
+  color: #000; 
+  font-weight: 700;
+  font-size: 11px;
+}
+.receipt-item-price { 
+  text-align: right; 
+  font-weight: 800;
+  color: #000;
+}
+.receipt-total-row td { 
+  padding-top: 6px; 
+  border-top: 1.5px solid #000; 
+  font-size: 14px;
+  font-weight: 900;
+  color: #000;
+}
+.text-right { 
+  text-align: right; 
+}
+.receipt-footer { 
+  text-align: center; 
+  font-size: 11px; 
+  font-weight: 700;
+  margin-top: 6px; 
+  color: #000;
+}
+
 @media print {
-  .no-print { display: none !important; }
-  body { background: white !important; }
-  .receipt-container { max-width: 58mm; margin: 0; padding: 0; }
-  .receipt-paper { padding: 4px; border-radius: 0; box-shadow: none; }
+  @page {
+    margin: 0;
+    size: auto;
+  }
+  html, body { 
+    background: white !important; 
+    color: #000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .no-print { 
+    display: none !important; 
+  }
+  .receipt-container { 
+    max-width: 58mm !important; 
+    width: 100% !important;
+    margin: 0 !important; 
+    padding: 0 !important; 
+    font-family: 'Consolas', 'Courier New', Courier, monospace !important;
+  }
+  .receipt-paper { 
+    padding: 6px 2px !important; 
+    border-radius: 0 !important; 
+    box-shadow: none !important; 
+    color: #000 !important;
+    font-weight: 800 !important;
+    -webkit-text-stroke: 0.35px #000 !important;
+  }
+  .receipt-paper * {
+    color: #000 !important;
+    font-weight: 800 !important;
+    -webkit-text-stroke: 0.35px #000 !important;
+  }
+  .receipt-header h1 {
+    font-size: 18px !important;
+    font-weight: 900 !important;
+    -webkit-text-stroke: 0.5px #000 !important;
+  }
+  .receipt-total-row td {
+    font-size: 14px !important;
+    font-weight: 900 !important;
+    -webkit-text-stroke: 0.5px #000 !important;
+    border-top: 2px solid #000 !important;
+  }
 }
 </style>
