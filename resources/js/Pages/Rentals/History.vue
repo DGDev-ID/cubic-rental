@@ -760,6 +760,11 @@ function confirmDelete() {
                   style="background:rgba(139,92,246,.2); border:1px solid rgba(139,92,246,.3); color:#a78bfa;">
                   Detail
                 </button>
+                <a :href="route('fnb-orders.receipt', r.id)"
+                  class="text-xs px-2.5 py-1.5 rounded-lg transition-all"
+                  style="background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.3); color:#22c55e; text-decoration:none;">
+                  Struk
+                </a>
                 <button @click="openEditNotesFnb(r)"
                   class="text-xs p-1.5 rounded-lg transition-all hover:bg-blue-500/25"
                   style="background:rgba(59,130,246,.15); border:1px solid rgba(59,130,246,.3); color:#60a5fa;"
@@ -997,6 +1002,9 @@ function confirmDelete() {
             <div>
               <span class="text-white font-medium">{{ it.fnb_item?.name || 'Item F&B' }}</span>
               <span class="text-slate-400 ml-2">x{{ it.qty }} @ {{ formatCurrency(it.unit_price) }}</span>
+              <div v-for="ad in (it.addons || [])" :key="ad.name" class="text-[11px] text-emerald-400 pl-2">
+                + {{ ad.name }} ({{ formatCurrency(ad.price) }})
+              </div>
             </div>
             <span class="font-bold text-white">{{ formatCurrency(it.subtotal) }}</span>
           </div>
@@ -1013,11 +1021,17 @@ function confirmDelete() {
         <p class="text-slate-200">{{ selectedFnbDetail.notes }}</p>
       </div>
 
-      <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
-        <button type="button" @click="openEditNotesFnb(selectedFnbDetail); showFnbDetailModal = false"
-          class="text-xs px-3 py-2 rounded-xl text-blue-400 bg-blue-500/15 border border-blue-500/30 hover:bg-blue-500/25 flex items-center gap-1.5">
-          <StickyNote :size="13" /> Edit Catatan
-        </button>
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800">
+        <div class="flex items-center gap-2">
+          <button type="button" @click="openEditNotesFnb(selectedFnbDetail); showFnbDetailModal = false"
+            class="text-xs px-3 py-2 rounded-xl text-blue-400 bg-blue-500/15 border border-blue-500/30 hover:bg-blue-500/25 flex items-center gap-1.5">
+            <StickyNote :size="13" /> Edit Catatan
+          </button>
+          <a :href="route('fnb-orders.receipt', selectedFnbDetail.id)"
+            class="text-xs px-3 py-2 rounded-xl text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 flex items-center gap-1.5 text-decoration-none">
+            <Receipt :size="13" /> Cetak Struk
+          </a>
+        </div>
         <button type="button" @click="showFnbDetailModal = false"
           class="text-xs px-3 py-2 rounded-xl text-slate-300 bg-slate-800 hover:bg-slate-700">
           Tutup

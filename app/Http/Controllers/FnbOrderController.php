@@ -96,9 +96,18 @@ class FnbOrderController extends Controller
 
     public function show(FnbOrder $fnbOrder): Response
     {
-        $fnbOrder->load(['employee', 'items.fnbItem']);
+        $fnbOrder->load(['employee', 'console', 'items.fnbItem']);
         return Inertia::render('FnbOrders/Show', [
             'order' => $fnbOrder,
+        ]);
+    }
+
+    public function receipt(FnbOrder $fnbOrder): Response
+    {
+        $fnbOrder->load(['employee', 'console', 'items.fnbItem']);
+        return Inertia::render('FnbOrders/Receipt', [
+            'order'      => $fnbOrder,
+            'store_name' => config('app.name', 'Cubic'),
         ]);
     }
 

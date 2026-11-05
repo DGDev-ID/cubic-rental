@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { router, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
-import { ShoppingCart, Plus, Minus, Trash2, CreditCard, UtensilsCrossed, Search, ChevronRight } from 'lucide-vue-next'
+import { ShoppingCart, Plus, Minus, Trash2, CreditCard, UtensilsCrossed, Search, ChevronRight, Receipt } from 'lucide-vue-next'
 
 interface FnbItem {
   id: number; name: string; category: string; price: number; is_available: boolean
@@ -470,6 +470,13 @@ const catColor = (cat: string) => categoryColors[cat] ?? '#8b5cf6'
         <div class="flex items-center justify-between text-sm">
           <span style="color:#94a3b8;">Operator: {{ showDetail.employee?.name }}</span>
           <span v-if="showDetail.customer_name" style="color:#94a3b8;">{{ showDetail.customer_name }}</span>
+        </div>
+
+        <div v-if="showDetail.status === 'paid'" class="pt-1">
+          <a :href="route('fnb-orders.receipt', showDetail.id)"
+            class="w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all text-decoration-none">
+            <Receipt :size="14" /> Cetak Struk
+          </a>
         </div>
 
         <!-- Actions -->

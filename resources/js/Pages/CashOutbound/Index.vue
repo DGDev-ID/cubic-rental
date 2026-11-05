@@ -3,14 +3,12 @@ import { ref, watch } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import GamingModal from '@/Components/GamingModal.vue'
-import { Plus, Pencil, Trash2 } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, Download } from 'lucide-vue-next'
 
 interface Outbound {
   id: number; nominal: number; notes: string; date: string;
   employee: { name: string } | null
 }
-
-
 
 function formatCurrency(v: number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v)
@@ -59,17 +57,55 @@ function destroy(id: number) {
     useForm({}).delete(route('cash-outbounds.destroy', id))
   }
 }
+
+// Export Excel
+const showExportModal = ref(false)
+const exportType = ref<'all' | 'year' | 'month' | 'day'>('month')
+const exportYear = ref(new Date().getFullYear())
+const exportMonth = ref(new Date().toISOString().slice(0, 7))
+const exportDate = ref(props.filters?.date || new Date().toISOString().slice(0, 10))
+
+function openExportModal() {
+  if (filterDate.value) {
+    exportType.value = 'day'
+    exportDate.value = filterDate.value
+  } else {
+    exportType.value = 'month'
+    exportMonth.value = new Date().toISOString().slice(0, 7)
+  }
+  showExportModal.value = true
+}
+
+function doExport() {
+  const q = new URLSearchParams()
+  if (exportType.value === 'day' && exportDate.value) {
+    q.append('date', exportDate.value)
+  } else if (exportType.value === 'month' && exportMonth.value) {
+    q.append('month', exportMonth.value)
+  } else if (exportType.value === 'year') {
+    q.append('year', String(exportYear.value))
+  }
+  window.location.href = route('cash-outbounds.export') + (q.toString() ? '?' + q.toString() : '')
+  showExportModal.value = false
+}
 </script>
 
 <template>
   <AppLayout>
     <template #header-title><h1 class="font-semibold text-white text-lg">Pengeluaran Kas</h1></template>
     <template #header-actions>
-      <button @click="openCreate"
-        class="px-4 py-2 rounded-xl text-sm font-medium text-white flex items-center gap-1.5"
-        style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);">
-        <Plus :size="14" /> Tambah
-      </button>
+      <div class="flex items-center gap-2">
+        <button @click="openExportModal"
+          class="px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5 transition-all hover:bg-sky-500/10"
+          style="background:#1a1a26; border:1px solid rgba(56,189,248,.4); color:#38bdf8;">
+          <Download :size="14" /> Export Excel
+        </button>
+        <button @click="openCreate"
+          class="px-4 py-2 rounded-xl text-sm font-medium text-white flex items-center gap-1.5"
+          style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);">
+          <Plus :size="14" /> Tambah
+        </button>
+      </div>
     </template>
 
     <!-- Summary and Filter -->
@@ -139,7 +175,7 @@ function destroy(id: number) {
       </template>
     </div>
 
-    <!-- Modal -->
+    <!-- Modal Form (Tambah/Edit) -->
     <GamingModal :show="showModal" :title="editId ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'" @close="closeModal">
       <form @submit.prevent="submit" class="space-y-4">
         <div>
@@ -179,6 +215,70 @@ function destroy(id: number) {
           </button>
         </div>
       </form>
+    </GamingModal>
+
+    <!-- Modal Export Excel -->
+    <GamingModal :show="showExportModal" title="Export Laporan Pengeluaran" @close="showExportModal = false">
+      <div class="space-y-4">
+        <p class="text-xs" style="color:#94a3b8;">Pilih cakupan periode data pengeluaran yang ingin diekspor ke Excel (.xlsx):</p>
+        
+        <!-- Filter type selection -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <button v-for="t in [
+            { key: 'all', label: 'Semua' },
+            { key: 'year', label: 'Per Tahun' },
+            { key: 'month', label: 'Per Bulan' },
+            { key: 'day', label: 'Per Hari' },
+          ]" :key="t.key"
+            type="button"
+            @click="exportType = t.key as any"
+            class="py-2.5 px-3 rounded-xl text-xs font-semibold transition-all text-center"
+            :style="exportType === t.key
+              ? 'background:rgba(56,189,248,0.2); border:1px solid rgba(56,189,248,0.5); color:#38bdf8;'
+              : 'background:#12121a; border:1px solid #2a2a3a; color:#94a3b8;'">
+            {{ t.label }}
+          </button>
+        </div>
+
+        <!-- Year picker -->
+        <div v-if="exportType === 'year'" class="space-y-1">
+          <label class="block text-xs font-medium" style="color:#94a3b8;">Tahun</label>
+          <select v-model="exportYear"
+            class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+            style="background:#12121a; border:1px solid #2a2a3a;">
+            <option v-for="y in [2024, 2025, 2026, 2027, 2028]" :key="y" :value="y">{{ y }}</option>
+          </select>
+        </div>
+
+        <!-- Month picker -->
+        <div v-if="exportType === 'month'" class="space-y-1">
+          <label class="block text-xs font-medium" style="color:#94a3b8;">Bulan</label>
+          <input v-model="exportMonth" type="month"
+            class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+            style="background:#12121a; border:1px solid #2a2a3a; color-scheme: dark;" />
+        </div>
+
+        <!-- Day picker -->
+        <div v-if="exportType === 'day'" class="space-y-1">
+          <label class="block text-xs font-medium" style="color:#94a3b8;">Tanggal</label>
+          <input v-model="exportDate" type="date"
+            class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+            style="background:#12121a; border:1px solid #2a2a3a; color-scheme: dark;" />
+        </div>
+
+        <div class="flex gap-2 justify-end pt-2">
+          <button type="button" @click="showExportModal = false"
+            class="px-4 py-2 rounded-xl text-xs font-medium"
+            style="background:#12121a; border:1px solid #2a2a3a; color:#94a3b8;">
+            Batal
+          </button>
+          <button type="button" @click="doExport"
+            class="px-5 py-2 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5"
+            style="background:linear-gradient(135deg,#0284c7,#0369a1);">
+            <Download :size="13" /> Unduh File Excel
+          </button>
+        </div>
+      </div>
     </GamingModal>
   </AppLayout>
 </template>

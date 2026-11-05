@@ -66,6 +66,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/members/{member}/deposit', [MemberController::class, 'deposit'])->name('members.deposit');
 
     // Cash Outbound
+    Route::get('/cash-outbounds/export', [CashOutboundController::class, 'exportExcel'])->name('cash-outbounds.export');
     Route::resource('cash-outbounds', CashOutboundController::class)->except(['create', 'edit', 'show']);
 
     // Reservations
@@ -79,6 +80,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/fnb-orders', [FnbOrderController::class, 'index'])->name('fnb-orders.index');
     Route::post('/fnb-orders', [FnbOrderController::class, 'store'])->name('fnb-orders.store');
     Route::get('/fnb-orders/{fnbOrder}', [FnbOrderController::class, 'show'])->name('fnb-orders.show');
+    Route::get('/fnb-orders/{fnbOrder}/receipt', [FnbOrderController::class, 'receipt'])->name('fnb-orders.receipt');
     Route::patch('/fnb-orders/{fnbOrder}/notes', [FnbOrderController::class, 'updateNotes'])->name('fnb-orders.update-notes');
     Route::post('/fnb-orders/{fnbOrder}/pay', [FnbOrderController::class, 'pay'])->name('fnb-orders.pay');
     Route::delete('/fnb-orders/{fnbOrder}', [FnbOrderController::class, 'destroy'])->name('fnb-orders.destroy');
