@@ -14,7 +14,7 @@ class DashboardService
     {
         $today = Carbon::today();
 
-        $todayRentals = Rental::whereDate('started_at', $today)->get();
+        $todayRentals = Rental::whereDate('started_at', $today)->whereNotNull('ended_at')->get();
         $finishedToday = $todayRentals->whereIn('status', ['finished', 'paid', 'half_paid']);
 
         $totalOmzetRental = $finishedToday->sum('rental_amount') + $finishedToday->sum('extra_amount');
@@ -26,10 +26,11 @@ class DashboardService
         $totalOmzet      = $finishedToday->sum('total_amount') + $fnbOrdersToday;
         $totalOutbound   = CashOutbound::where('date', $today->toDateString())->sum('nominal');
 
-        $activeRentals = Rental::whereIn('status', ['running', 'half_paid'])->whereNull('ended_at')->count();
+        $activeRentals = Rental::whereNull('ended_at')->where('status', '!=', 'cancelled')->count();
         $totalRooms    = Console::count();
         $omzetBulanIni = Rental::whereYear('started_at', $today->year)
             ->whereMonth('started_at', $today->month)
+            ->whereNotNull('ended_at')
             ->whereIn('status', ['finished', 'paid', 'half_paid'])
             ->sum('total_amount')
             + FnbOrder::whereYear('paid_at', $today->year)
@@ -66,7 +67,7 @@ class DashboardService
         for ($i = $days - 1; $i >= 0; $i--) {
             $date = Carbon::today()->subDays($i);
             $labels[] = $date->format('d M');
-            $dayRentals = Rental::whereDate('started_at', $date)->whereIn('status', ['finished', 'paid', 'half_paid'])->get();
+            $dayRentals = Rental::whereDate('started_at', $date)->whereNotNull('ended_at')->whereIn('status', ['finished', 'paid', 'half_paid'])->get();
             $rentalData[] = $dayRentals->sum('rental_amount') + $dayRentals->sum('extra_amount');
             $fnbData[]    = $dayRentals->sum('fnb_amount')
                 + FnbOrder::whereDate('paid_at', $date)->where('status', 'paid')->sum('total_amount');
@@ -85,6 +86,7 @@ class DashboardService
             $labels[] = $month->format('M Y');
             $data[] = Rental::whereYear('started_at', $month->year)
                 ->whereMonth('started_at', $month->month)
+                ->whereNotNull('ended_at')
                 ->whereIn('status', ['finished', 'paid', 'half_paid'])
                 ->sum('total_amount')
                 + FnbOrder::whereYear('paid_at', $month->year)

@@ -227,8 +227,9 @@ function formatDt(d: string | null) {
 
 function formatDuration(start: string, end: string | null) {
   if (!start) return '-'
+  if (!end) return '-'
   const s = new Date(start).getTime()
-  const e = end ? new Date(end).getTime() : Date.now()
+  const e = new Date(end).getTime()
   const diff = Math.max(0, Math.floor((e - s) / 60000))
   const h = Math.floor(diff / 60)
   const m = diff % 60

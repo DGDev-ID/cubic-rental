@@ -37,31 +37,19 @@ class HandleInertiaRequests extends Middleware
             ],
             // Badge kuning: Menunggu Pembayaran
             'pending_payment_count' => fn () => $request->user()
-                ? Rental::where(function ($q) {
-                    $q->where('status', 'finished')
-                      ->orWhere(function ($q2) {
-                          $q2->where('status', 'half_paid')
-                             ->whereNotNull('ended_at');
-                      });
-                })->count()
+                ? Rental::whereNotNull('ended_at')->whereIn('status', ['finished', 'half_paid'])->count()
                 : 0,
             // Badge merah: Waktu Tetap Habis namun Overtime
             'overtime_count' => fn () => $request->user()
-                ? Rental::whereIn('status', ['running', 'half_paid'])
-                    ->whereNull('ended_at')
+                ? Rental::whereNull('ended_at')
+                    ->where('status', '!=', 'cancelled')
                     ->whereNotNull('scheduled_end_at')
                     ->where('scheduled_end_at', '<', now())
                     ->count()
                 : 0,
             // Backward-compatibility alias
             'finished_unpaid_count' => fn () => $request->user()
-                ? Rental::where(function ($q) {
-                    $q->where('status', 'finished')
-                      ->orWhere(function ($q2) {
-                          $q2->where('status', 'half_paid')
-                             ->whereNotNull('ended_at');
-                      });
-                })->count()
+                ? Rental::whereNotNull('ended_at')->whereIn('status', ['finished', 'half_paid'])->count()
                 : 0,
         ];
     }

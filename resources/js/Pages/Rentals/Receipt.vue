@@ -19,7 +19,8 @@ defineProps<{
 function formatCurrency(v: number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v)
 }
-function formatDt(d: string) {
+function formatDt(d: string | null) {
+  if (!d) return '-'
   return new Date(d).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 function methodLabel(m: string) {
@@ -59,7 +60,7 @@ function methodLabel(m: string) {
         <tr v-if="rental.cashier && rental.cashier.name !== rental.employee.name"><td>Kasir</td><td>: {{ rental.cashier.name }}</td></tr>
         <tr><td>Tipe</td><td style="text-transform: capitalize;">: {{ rental.rental_type ? rental.rental_type.replace('_', ' ') : 'Open Time' }}</td></tr>
         <tr><td>Mulai</td><td>: {{ formatDt(rental.started_at) }}</td></tr>
-        <tr><td>Selesai</td><td>: {{ formatDt(rental.ended_at) }}</td></tr>
+        <tr><td>Selesai</td><td>: {{ rental.ended_at ? formatDt(rental.ended_at) : '-' }}</td></tr>
       </table>
 
       <div class="receipt-divider">--------------------------------</div>

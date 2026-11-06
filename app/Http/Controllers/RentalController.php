@@ -186,8 +186,9 @@ class RentalController extends Controller
         $this->rentalService->pay($rental, $request->payments, $request->cashier_id);
         $rental->refresh();
 
-        if ($rental->status === 'half_paid' && $rental->ended_at === null) {
-            return redirect()->route('rentals.show', $rental)->with('success', 'DP berhasil dicatat.');
+        // Jika rental masih aktif bermain (ended_at belum diisi):
+        if ($rental->ended_at === null) {
+            return redirect()->route('rentals.show', $rental)->with('success', 'Pembayaran berhasil dicatat. Console masih aktif bermain.');
         }
 
         if ($rental->status === 'half_paid') {
@@ -209,6 +210,10 @@ class RentalController extends Controller
     public function history(Request $request): Response
     {
         $query = Rental::with(['console', 'employee', 'cashier', 'payments', 'fnbItems.fnbItem', 'extensions', 'member'])
+            ->where(function ($q) {
+                $q->whereNotNull('ended_at')
+                  ->orWhere('status', 'cancelled');
+            })
             ->whereIn('status', ['finished', 'paid', 'half_paid', 'cancelled']);
 
         $fnbQuery = \App\Models\FnbOrder::with(['employee', 'console', 'items.fnbItem'])
@@ -262,14 +267,14 @@ class RentalController extends Controller
 
         // Today stats (always today, unaffected by filters)
         $today = now()->toDateString();
-        $todayRentals = Rental::whereIn('status', ['finished', 'paid', 'half_paid'])->whereDate('started_at', $today);
+        $todayRentals = Rental::whereNotNull('ended_at')->whereIn('status', ['finished', 'paid', 'half_paid'])->whereDate('started_at', $today);
         $todayRevenue = $todayRentals->sum('total_amount')
             + \App\Models\FnbOrder::where('status', 'paid')->whereDate('paid_at', $today)->sum('total_amount');
-        $todayCustomers = Rental::whereDate('started_at', $today)->count()
+        $todayCustomers = Rental::whereNotNull('ended_at')->whereDate('started_at', $today)->count()
             + \App\Models\FnbOrder::where('status', 'paid')->whereDate('paid_at', $today)->count();
 
         // Yearly stats (all available years)
-        $yRentals = Rental::whereIn('status', ['finished', 'paid', 'half_paid'])
+        $yRentals = Rental::whereNotNull('ended_at')->whereIn('status', ['finished', 'paid', 'half_paid'])
             ->selectRaw('EXTRACT(YEAR FROM started_at) as year, SUM(COALESCE(rental_amount, 0) + COALESCE(extra_amount, 0)) as rental_revenue, SUM(COALESCE(fnb_amount, 0)) as fnb_revenue, SUM(total_amount) as revenue, COUNT(*) as customers')
             ->groupByRaw('EXTRACT(YEAR FROM started_at)')
             ->orderByRaw('EXTRACT(YEAR FROM started_at)')
@@ -291,7 +296,7 @@ class RentalController extends Controller
 
         // Monthly stats for the selected year
         $statsYear = (int) ($request->stats_year ?? now()->year);
-        $mRentals = Rental::whereIn('status', ['finished', 'paid', 'half_paid'])
+        $mRentals = Rental::whereNotNull('ended_at')->whereIn('status', ['finished', 'paid', 'half_paid'])
             ->whereYear('started_at', $statsYear)
             ->selectRaw('EXTRACT(MONTH FROM started_at) as month, SUM(COALESCE(rental_amount, 0) + COALESCE(extra_amount, 0)) as rental_revenue, SUM(COALESCE(fnb_amount, 0)) as fnb_revenue, SUM(total_amount) as revenue, COUNT(*) as customers')
             ->groupByRaw('EXTRACT(MONTH FROM started_at)')
@@ -312,7 +317,7 @@ class RentalController extends Controller
         // Daily stats for the selected year+month
         $statsMonth = (int) ($request->stats_month ?? now()->month);
         $daysInMonth = \Carbon\Carbon::create($statsYear, $statsMonth)->daysInMonth;
-        $dRentals = Rental::whereIn('status', ['finished', 'paid', 'half_paid'])
+        $dRentals = Rental::whereNotNull('ended_at')->whereIn('status', ['finished', 'paid', 'half_paid'])
             ->whereYear('started_at', $statsYear)
             ->whereMonth('started_at', $statsMonth)
             ->selectRaw('EXTRACT(DAY FROM started_at) as day, SUM(COALESCE(rental_amount, 0) + COALESCE(extra_amount, 0)) as rental_revenue, SUM(COALESCE(fnb_amount, 0)) as fnb_revenue, SUM(total_amount) as revenue, COUNT(*) as customers')
@@ -355,6 +360,7 @@ class RentalController extends Controller
     public function exportExcel(Request $request)
     {
         $query = Rental::with(['console', 'employee', 'cashier', 'fnbItems.fnbItem', 'payments', 'member'])
+            ->whereNotNull('ended_at')
             ->whereIn('status', ['finished', 'paid', 'half_paid']);
 
         $fnbQuery = \App\Models\FnbOrder::with(['console', 'employee', 'items.fnbItem'])

@@ -41,10 +41,11 @@ let timer: ReturnType<typeof setInterval>
 onMounted(() => { timer = setInterval(() => { now.value = new Date() }, 1000) })
 onUnmounted(() => clearInterval(timer))
 
-const isFinishedOrPaid = computed(() => props.rental.status === 'finished' || props.rental.status === 'paid')
+// Rental dianggap selesai jika ended_at sudah tercatat atau status finished
+const isFinishedOrPaid = computed(() => !!props.rental.ended_at || props.rental.status === 'finished')
 
 const liveDuration = computed(() => {
-  const endTime = isFinishedOrPaid.value && props.rental.ended_at
+  const endTime = props.rental.ended_at
     ? new Date(props.rental.ended_at).getTime()
     : now.value.getTime()
   const diff = Math.max(0, Math.floor((endTime - new Date(props.rental.started_at).getTime()) / 60000))
@@ -63,7 +64,7 @@ const liveRemaining = computed(() => {
 const currentRentalAmount = computed(() => {
   const rate = Number(props.rental.console?.price_per_hour || 0)
   // Jika rental sudah selesai dan ada nilai di database, gunakan itu
-  if (props.rental.status === 'finished' || props.rental.status === 'paid') {
+  if (props.rental.ended_at) {
     if (Number(props.rental.rental_amount) > 0) return Number(props.rental.rental_amount)
   }
 

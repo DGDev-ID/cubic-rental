@@ -145,7 +145,7 @@ class RentalService
         $paid = (float) $rental->payments()->sum('amount');
         $rental->extra_amount = (float) bcadd((string)$rental->extra_amount, (string)$additionalPrice, 2);
         $rental->total_amount = (float) bcadd(bcadd((string)$rental->rental_amount, (string)$rental->fnb_amount, 2), (string)$rental->extra_amount, 2);
-        $rental->status = $paid > 0 ? 'half_paid' : 'running';
+        $rental->status = 'running';
         $rental->save();
 
         return $extension;
@@ -275,10 +275,10 @@ class RentalService
         $paidAmount = (float) $rental->payments()->sum('amount');
         $rental->paid_amount = $paidAmount;
 
-        // Determine status based on how much has been paid and rental state
-        if ($rental->status === 'running') {
-            // Mid-session partial payment (DP)
-            $rental->status = 'half_paid';
+        // Jika rental masih aktif bermain (ended_at belum diisi), status TETAP 'running'!
+        // Tidak boleh diubah ke 'paid' atau 'half_paid' sebelum sesi benar-benar selesai (ended_at).
+        if ($rental->ended_at === null) {
+            $rental->status = 'running';
         } elseif ($paidAmount >= $rental->total_amount) {
             $rental->status = 'paid';
         } else {
@@ -291,15 +291,8 @@ class RentalService
     public function getFinishedUnpaidRentals()
     {
         return Rental::with(['console', 'employee', 'payments'])
-            ->where(function ($q) {
-                // status 'finished' (belum bayar sama sekali)
-                $q->where('status', 'finished')
-                  // status 'half_paid' yang sudah selesai (ended_at ada, berarti sudah diklik Selesai)
-                  ->orWhere(function ($q2) {
-                      $q2->where('status', 'half_paid')
-                         ->whereNotNull('ended_at');
-                  });
-            })
+            ->whereNotNull('ended_at')
+            ->whereIn('status', ['finished', 'half_paid'])
             ->orderBy('ended_at', 'desc')
             ->get()
             ->map(function ($rental) {
@@ -317,14 +310,8 @@ class RentalService
     public function getActiveRentals()
     {
         return Rental::with(['console', 'employee', 'fnbItems.fnbItem', 'payments', 'member'])
-            ->where(function ($q) {
-                // Masih aktif: status running, ATAU half_paid tapi belum selesai (DP mid-session)
-                $q->where('status', 'running')
-                  ->orWhere(function ($q2) {
-                      $q2->where('status', 'half_paid')
-                         ->whereNull('ended_at');
-                  });
-            })
+            ->whereNull('ended_at')
+            ->where('status', '!=', 'cancelled')
             ->orderBy('started_at', 'asc')
             ->get()
             ->map(function ($rental) {
@@ -367,7 +354,7 @@ class RentalService
                     'current_total'        => $currentTotal,
                     'is_fixed_duration'    => !is_null($rental->scheduled_end_at),
                     'fixed_rental_amount'  => $currentRentalAmount,
-                    'is_dp'                => $rental->status === 'half_paid' && !$isPaid,
+                    'is_dp'                => $paid > 0 && !$isPaid,
                     'is_paid'              => $isPaid,
                     'paid_amount'          => $paid,
                 ]);
