@@ -709,142 +709,147 @@ function savePaymentMethod() {
 
     <!-- Table Rental -->
     <div v-if="activeTab === 'rental'" class="rounded-xl overflow-hidden" style="border:1px solid #2a2a3a;">
-      <table class="w-full text-sm">
-        <thead style="background:#12121a;">
-          <tr>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Kode</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Customer</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Console</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Waktu</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Total</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Status</th>
-            <th class="px-4 py-3"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="rentals.data.length === 0">
-            <td colspan="7" class="px-4 py-10 text-center text-xs" style="color:#64748b;">Tidak ada data</td>
-          </tr>
-          <tr v-for="r in rentals.data" :key="r.id"
-            class="transition-colors" style="border-top:1px solid #1a1a26;"
-            :style="{ background: r.id === detail?.id ? 'rgba(139,92,246,.1)' : '' }">
-            <td class="px-4 py-3 font-mono text-xs" style="color:#94a3b8;">{{ r.transaction_code }}</td>
-            <td class="px-4 py-3">
-              <span class="text-white">{{ r.customer_name }}</span>
-              <div v-if="r.notes" class="text-[11px] text-blue-400/90 truncate max-w-[180px] flex items-center gap-1 mt-0.5" :title="r.notes">
-                <StickyNote :size="11" class="shrink-0" />
-                <span class="truncate">{{ r.notes }}</span>
-              </div>
-            </td>
-            <td class="px-4 py-3">
-              <span class="text-white">{{ r.console?.name ?? '(dihapus)' }}</span>
-              <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full" :style="`background:rgba(99,102,241,.15); color:${typeColors[r.console?.type ?? 'regular']}`">
-                {{ r.console?.type ?? '-' }}
-              </span>
-            </td>
-            <td class="px-4 py-3 text-xs" style="color:#94a3b8;">{{ formatDt(r.started_at) }}</td>
-            <td class="px-4 py-3 font-semibold" style="color:#a78bfa;">{{ formatCurrency(r.total_amount) }}</td>
-            <td class="px-4 py-3">
-              <span class="text-xs px-2 py-1 rounded-full" :style="`background:${statusColor[r.status]}22; color:${statusColor[r.status]}`">
-                {{ r.status }}
-              </span>
-            </td>
-            <td class="px-4 py-3">
-              <div class="flex items-center gap-1.5 justify-end">
-                <button @click="openDetailRental(r)"
-                  class="text-xs px-2.5 py-1.5 rounded-lg transition-all"
-                  style="background:rgba(139,92,246,.2); border:1px solid rgba(139,92,246,.3); color:#a78bfa;">
-                  Detail
-                </button>
-                <a :href="route('rentals.receipt', r.id)"
-                  class="text-xs px-2.5 py-1.5 rounded-lg transition-all"
-                  style="background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.3); color:#22c55e; text-decoration:none;">
-                  Struk
-                </a>
-                <button @click="openEditNotesRental(r)"
-                  class="text-xs p-1.5 rounded-lg transition-all hover:bg-blue-500/25"
-                  style="background:rgba(59,130,246,.15); border:1px solid rgba(59,130,246,.3); color:#60a5fa;"
-                  title="Edit Catatan">
-                  <StickyNote :size="14" />
-                </button>
-                <button @click="openDeleteRental(r)"
-                  class="text-xs p-1.5 rounded-lg transition-all hover:bg-red-500/25 text-red-400"
-                  style="background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.3);"
-                  title="Hapus Transaksi">
-                  <Trash2 :size="14" />
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[700px]">
+          <thead style="background:#12121a;">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Kode</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Customer</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Console</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Waktu</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Total</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Status</th>
+              <th class="px-4 py-3 whitespace-nowrap"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="rentals.data.length === 0">
+              <td colspan="7" class="px-4 py-10 text-center text-xs" style="color:#64748b;">Tidak ada data</td>
+            </tr>
+            <tr v-for="r in rentals.data" :key="r.id"
+              class="transition-colors" style="border-top:1px solid #1a1a26;"
+              :style="{ background: r.id === detail?.id ? 'rgba(139,92,246,.1)' : '' }">
+              <td class="px-4 py-3 font-mono text-xs whitespace-nowrap" style="color:#94a3b8;">{{ r.transaction_code }}</td>
+              <td class="px-4 py-3">
+                <span class="text-white">{{ r.customer_name }}</span>
+                <div v-if="r.notes" class="text-[11px] text-blue-400/90 truncate max-w-[180px] flex items-center gap-1 mt-0.5" :title="r.notes">
+                  <StickyNote :size="11" class="shrink-0" />
+                  <span class="truncate">{{ r.notes }}</span>
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span class="text-white">{{ r.console?.name ?? '(dihapus)' }}</span>
+                <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full" :style="`background:rgba(99,102,241,.15); color:${typeColors[r.console?.type ?? 'regular']}`">
+                  {{ r.console?.type ?? '-' }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-xs whitespace-nowrap" style="color:#94a3b8;">{{ formatDt(r.started_at) }}</td>
+              <td class="px-4 py-3 font-semibold whitespace-nowrap" style="color:#a78bfa;">{{ formatCurrency(r.total_amount) }}</td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span class="text-xs px-2 py-1 rounded-full" :style="`background:${statusColor[r.status]}22; color:${statusColor[r.status]}`">
+                  {{ r.status }}
+                </span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex items-center gap-1.5 justify-end">
+                  <button @click="openDetailRental(r)"
+                    class="text-xs px-2.5 py-1.5 rounded-lg transition-all"
+                    style="background:rgba(139,92,246,.2); border:1px solid rgba(139,92,246,.3); color:#a78bfa;">
+                    Detail
+                  </button>
+                  <a :href="route('rentals.receipt', r.id)"
+                    class="text-xs px-2.5 py-1.5 rounded-lg transition-all"
+                    style="background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.3); color:#22c55e; text-decoration:none;">
+                    Struk
+                  </a>
+                  <button @click="openEditNotesRental(r)"
+                    class="text-xs p-1.5 rounded-lg transition-all hover:bg-blue-500/25"
+                    style="background:rgba(59,130,246,.15); border:1px solid rgba(59,130,246,.3); color:#60a5fa;"
+                    title="Edit Catatan">
+                    <StickyNote :size="14" />
+                  </button>
+                  <button @click="openDeleteRental(r)"
+                    class="text-xs p-1.5 rounded-lg transition-all hover:bg-red-500/25 text-red-400"
+                    style="background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.3);"
+                    title="Hapus Transaksi">
+                    <Trash2 :size="14" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Table FnB -->
     <div v-if="activeTab === 'fnb' && fnb_orders" class="rounded-xl overflow-hidden" style="border:1px solid #2a2a3a;">
-      <table class="w-full text-sm">
-        <thead style="background:#12121a;">
-          <tr>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Kode</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Customer</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Console</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Waktu</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Total</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Status</th>
-            <th class="px-4 py-3"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="fnb_orders.data.length === 0">
-            <td colspan="7" class="px-4 py-10 text-center text-xs" style="color:#64748b;">Tidak ada data</td>
-          </tr>
-          <tr v-for="r in fnb_orders.data" :key="r.id"
-            class="transition-colors" style="border-top:1px solid #1a1a26;">
-            <td class="px-4 py-3 font-mono text-xs" style="color:#94a3b8;">{{ r.code }}</td>
-            <td class="px-4 py-3">
-              <span class="text-white">{{ r.customer_name || '-' }}</span>
-              <div v-if="r.notes" class="text-[11px] text-emerald-400/90 truncate max-w-[180px] flex items-center gap-1 mt-0.5" :title="r.notes">
-                <StickyNote :size="11" class="shrink-0" />
-                <span class="truncate">{{ r.notes }}</span>
-              </div>
-            </td>
-            <td class="px-4 py-3 text-white">{{ r.console?.name || '-' }}</td>
-            <td class="px-4 py-3 text-xs" style="color:#94a3b8;">{{ formatDt(r.paid_at) }}</td>
-            <td class="px-4 py-3 font-semibold" style="color:#10b981;">{{ formatCurrency(r.total_amount) }}</td>
-            <td class="px-4 py-3">
-              <span class="text-xs px-2 py-1 rounded-full" style="background:rgba(34,197,94,.15); color:#22c55e;">
-                Lunas
-              </span>
-            </td>
-            <td class="px-4 py-3">
-              <div class="flex items-center gap-1.5 justify-end">
-                <button @click="openDetailFnb(r)"
-                  class="text-xs px-2.5 py-1.5 rounded-lg transition-all"
-                  style="background:rgba(139,92,246,.2); border:1px solid rgba(139,92,246,.3); color:#a78bfa;">
-                  Detail
-                </button>
-                <a :href="route('fnb-orders.receipt', r.id)"
-                  class="text-xs px-2.5 py-1.5 rounded-lg transition-all"
-                  style="background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.3); color:#22c55e; text-decoration:none;">
-                  Struk
-                </a>
-                <button @click="openEditNotesFnb(r)"
-                  class="text-xs p-1.5 rounded-lg transition-all hover:bg-blue-500/25"
-                  style="background:rgba(59,130,246,.15); border:1px solid rgba(59,130,246,.3); color:#60a5fa;"
-                  title="Edit Catatan">
-                  <StickyNote :size="14" />
-                </button>
-                <button @click="openDeleteFnb(r)"
-                  class="text-xs p-1.5 rounded-lg transition-all hover:bg-red-500/25 text-red-400"
-                  style="background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.3);"
-                  title="Hapus Transaksi">
-                  <Trash2 :size="14" />
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[700px]">
+          <thead style="background:#12121a;">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Kode</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Customer</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Console</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Waktu</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Total</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Status</th>
+              <th class="px-4 py-3 whitespace-nowrap"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="fnb_orders.data.length === 0">
+              <td colspan="7" class="px-4 py-10 text-center text-xs" style="color:#64748b;">Tidak ada data</td>
+            </tr>
+            <tr v-for="r in fnb_orders.data" :key="r.id"
+              class="transition-colors" style="border-top:1px solid #1a1a26;"
+              :style="{ background: r.id === detail?.id ? 'rgba(139,92,246,.1)' : '' }">
+              <td class="px-4 py-3 font-mono text-xs whitespace-nowrap" style="color:#94a3b8;">{{ r.code }}</td>
+              <td class="px-4 py-3">
+                <span class="text-white">{{ r.customer_name || '-' }}</span>
+                <div v-if="r.notes" class="text-[11px] text-emerald-400/90 truncate max-w-[180px] flex items-center gap-1 mt-0.5" :title="r.notes">
+                  <StickyNote :size="11" class="shrink-0" />
+                  <span class="truncate">{{ r.notes }}</span>
+                </div>
+              </td>
+              <td class="px-4 py-3 text-white whitespace-nowrap">{{ r.console?.name || '-' }}</td>
+              <td class="px-4 py-3 text-xs whitespace-nowrap" style="color:#94a3b8;">{{ formatDt(r.paid_at) }}</td>
+              <td class="px-4 py-3 font-semibold whitespace-nowrap" style="color:#10b981;">{{ formatCurrency(r.total_amount) }}</td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span class="text-xs px-2 py-1 rounded-full" style="background:rgba(34,197,94,.15); color:#22c55e;">
+                  Lunas
+                </span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex items-center gap-1.5 justify-end">
+                  <button @click="openDetailFnb(r)"
+                    class="text-xs px-2.5 py-1.5 rounded-lg transition-all"
+                    style="background:rgba(139,92,246,.2); border:1px solid rgba(139,92,246,.3); color:#a78bfa;">
+                    Detail
+                  </button>
+                  <a :href="route('fnb-orders.receipt', r.id)"
+                    class="text-xs px-2.5 py-1.5 rounded-lg transition-all"
+                    style="background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.3); color:#22c55e; text-decoration:none;">
+                    Struk
+                  </a>
+                  <button @click="openEditNotesFnb(r)"
+                    class="text-xs p-1.5 rounded-lg transition-all hover:bg-blue-500/25"
+                    style="background:rgba(59,130,246,.15); border:1px solid rgba(59,130,246,.3); color:#60a5fa;"
+                    title="Edit Catatan">
+                    <StickyNote :size="14" />
+                  </button>
+                  <button @click="openDeleteFnb(r)"
+                    class="text-xs p-1.5 rounded-lg transition-all hover:bg-red-500/25 text-red-400"
+                    style="background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.3);"
+                    title="Hapus Transaksi">
+                    <Trash2 :size="14" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Pagination -->

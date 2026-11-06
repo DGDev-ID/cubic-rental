@@ -253,81 +253,83 @@ function editEstimated() {
 
     <!-- Table -->
     <div v-else class="rounded-xl overflow-hidden" style="background:#1a1a26; border:1px solid #2a2a3a;">
-      <table class="w-full text-sm">
-        <thead>
-          <tr style="background:#12121a; border-bottom:1px solid #2a2a3a;">
-            <th class="text-left px-4 py-3 text-xs font-semibold" style="color:#94a3b8;">Waktu Reservasi</th>
-            <th class="text-left px-4 py-3 text-xs font-semibold" style="color:#94a3b8;">Customer</th>
-            <th class="text-left px-4 py-3 text-xs font-semibold" style="color:#94a3b8;">Room / Console</th>
-            <th class="text-left px-4 py-3 text-xs font-semibold" style="color:#94a3b8;">Durasi</th>
-            <th class="text-left px-4 py-3 text-xs font-semibold" style="color:#94a3b8;">Harga</th>
-            <th class="text-left px-4 py-3 text-xs font-semibold" style="color:#94a3b8;">Status</th>
-            <th class="text-right px-4 py-3 text-xs font-semibold" style="color:#94a3b8;">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="r in reservations" :key="r.id"
-            class="border-b transition-colors hover:bg-white/5"
-            style="border-color:#2a2a3a;">
-            <td class="px-4 py-3 text-white font-medium">{{ formatDateTime(r.reserved_at) }}</td>
-            <td class="px-4 py-3">
-              <p class="text-white font-medium">{{ r.customer_name }}</p>
-              <p v-if="r.customer_phone" class="text-xs flex items-center gap-1 mt-0.5" style="color:#94a3b8;">
-                <Phone :size="11" /> {{ r.customer_phone }}
-              </p>
-            </td>
-            <td class="px-4 py-3">
-              <p class="text-white">{{ r.console?.name ?? '(dihapus)' }}</p>
-              <p class="text-xs" style="color:#94a3b8;">{{ r.employee?.name ?? '(dihapus)' }}</p>
-            </td>
-            <td class="px-4 py-3">
-              <span v-if="r.duration_hours" class="text-white">{{ r.duration_hours }}j</span>
-              <span v-else style="color:#64748b;">Open</span>
-            </td>
-            <td class="px-4 py-3">
-              <p class="text-white text-xs">{{ formatCurrency(r.console?.price_per_hour ?? 0) }}<span style="color:#64748b;">/j</span></p>
-              <p v-if="r.duration_hours && r.console" class="text-xs font-semibold" style="color:#a78bfa;">
-                ≈ {{ formatCurrency((r.console?.price_per_hour ?? 0) * r.duration_hours) }}
-              </p>
-              <p v-else class="text-xs" style="color:#64748b;">Open end</p>
-            </td>
-            <td class="px-4 py-3">
-              <span class="px-2 py-0.5 rounded-full text-xs font-medium"
-                :style="`background:${statusConfig[r.status].bg}; color:${statusConfig[r.status].text}; border:1px solid ${statusConfig[r.status].border};`">
-                {{ statusConfig[r.status].label }}
-              </span>
-            </td>
-            <td class="px-4 py-3">
-              <div class="flex justify-end gap-1.5">
-                <!-- Convert to rental -->
-                <button v-if="r.status !== 'converted' && r.status !== 'cancelled'"
-                  @click="confirmConvert = r"
-                  title="Mulai Rental"
-                  class="p-1.5 rounded-lg transition-colors hover:opacity-80"
-                  style="background:rgba(139,92,246,.15); color:#a78bfa; border:1px solid rgba(139,92,246,.3);">
-                  <ArrowRightCircle :size="14" />
-                </button>
-                <!-- Edit -->
-                <button v-if="r.status !== 'converted'"
-                  @click="openEdit(r)"
-                  title="Edit"
-                  class="p-1.5 rounded-lg transition-colors hover:opacity-80"
-                  style="background:rgba(59,130,246,.15); color:#60a5fa; border:1px solid rgba(59,130,246,.3);">
-                  <Pencil :size="14" />
-                </button>
-                <!-- Delete -->
-                <button v-if="r.status !== 'converted'"
-                  @click="confirmDelete = r.id"
-                  title="Hapus"
-                  class="p-1.5 rounded-lg transition-colors hover:opacity-80"
-                  style="background:rgba(239,68,68,.1); color:#f87171; border:1px solid rgba(239,68,68,.3);">
-                  <Trash2 :size="14" />
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[750px]">
+          <thead>
+            <tr style="background:#12121a; border-bottom:1px solid #2a2a3a;">
+              <th class="text-left px-4 py-3 text-xs font-semibold whitespace-nowrap" style="color:#94a3b8;">Waktu Reservasi</th>
+              <th class="text-left px-4 py-3 text-xs font-semibold whitespace-nowrap" style="color:#94a3b8;">Customer</th>
+              <th class="text-left px-4 py-3 text-xs font-semibold whitespace-nowrap" style="color:#94a3b8;">Room / Console</th>
+              <th class="text-left px-4 py-3 text-xs font-semibold whitespace-nowrap" style="color:#94a3b8;">Durasi</th>
+              <th class="text-left px-4 py-3 text-xs font-semibold whitespace-nowrap" style="color:#94a3b8;">Harga</th>
+              <th class="text-left px-4 py-3 text-xs font-semibold whitespace-nowrap" style="color:#94a3b8;">Status</th>
+              <th class="text-right px-4 py-3 text-xs font-semibold whitespace-nowrap" style="color:#94a3b8;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in reservations" :key="r.id"
+              class="border-b transition-colors hover:bg-white/5"
+              style="border-color:#2a2a3a;">
+              <td class="px-4 py-3 text-white font-medium whitespace-nowrap">{{ formatDateTime(r.reserved_at) }}</td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <p class="text-white font-medium">{{ r.customer_name }}</p>
+                <p v-if="r.customer_phone" class="text-xs flex items-center gap-1 mt-0.5" style="color:#94a3b8;">
+                  <Phone :size="11" /> {{ r.customer_phone }}
+                </p>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <p class="text-white">{{ r.console?.name ?? '(dihapus)' }}</p>
+                <p class="text-xs" style="color:#94a3b8;">{{ r.employee?.name ?? '(dihapus)' }}</p>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span v-if="r.duration_hours" class="text-white">{{ r.duration_hours }}j</span>
+                <span v-else style="color:#64748b;">Open</span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <p class="text-white text-xs">{{ formatCurrency(r.console?.price_per_hour ?? 0) }}<span style="color:#64748b;">/j</span></p>
+                <p v-if="r.duration_hours && r.console" class="text-xs font-semibold" style="color:#a78bfa;">
+                  ≈ {{ formatCurrency((r.console?.price_per_hour ?? 0) * r.duration_hours) }}
+                </p>
+                <p v-else class="text-xs" style="color:#64748b;">Open end</p>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span class="px-2 py-0.5 rounded-full text-xs font-medium"
+                  :style="`background:${statusConfig[r.status].bg}; color:${statusConfig[r.status].text}; border:1px solid ${statusConfig[r.status].border};`">
+                  {{ statusConfig[r.status].label }}
+                </span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex justify-end gap-1.5">
+                  <!-- Convert to rental -->
+                  <button v-if="r.status !== 'converted' && r.status !== 'cancelled'"
+                    @click="confirmConvert = r"
+                    title="Mulai Rental"
+                    class="p-1.5 rounded-lg transition-colors hover:opacity-80"
+                    style="background:rgba(139,92,246,.15); color:#a78bfa; border:1px solid rgba(139,92,246,.3);">
+                    <ArrowRightCircle :size="14" />
+                  </button>
+                  <!-- Edit -->
+                  <button v-if="r.status !== 'converted'"
+                    @click="openEdit(r)"
+                    title="Edit"
+                    class="p-1.5 rounded-lg transition-colors hover:opacity-80"
+                    style="background:rgba(59,130,246,.15); color:#60a5fa; border:1px solid rgba(59,130,246,.3);">
+                    <Pencil :size="14" />
+                  </button>
+                  <!-- Delete -->
+                  <button v-if="r.status !== 'converted'"
+                    @click="confirmDelete = r.id"
+                    title="Hapus"
+                    class="p-1.5 rounded-lg transition-colors hover:opacity-80"
+                    style="background:rgba(239,68,68,.1); color:#f87171; border:1px solid rgba(239,68,68,.3);">
+                    <Trash2 :size="14" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Add Modal -->

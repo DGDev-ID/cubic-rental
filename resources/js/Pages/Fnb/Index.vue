@@ -96,61 +96,65 @@ function destroyAddon(a: FnbAddon) {
 
     <!-- Items Table -->
     <div v-if="activeTab === 'items'" class="rounded-xl overflow-hidden" style="background-color:#1a1a26; border:1px solid #2a2a3a;">
-      <table class="w-full text-sm">
-        <thead>
-          <tr style="border-bottom:1px solid #2a2a3a;">
-            <th class="text-left px-4 py-3 text-xs uppercase tracking-wider" style="color:#94a3b8;">Nama</th>
-            <th class="text-left px-4 py-3 text-xs uppercase tracking-wider" style="color:#94a3b8;">Kategori</th>
-            <th class="text-left px-4 py-3 text-xs uppercase tracking-wider" style="color:#94a3b8;">Harga</th>
-            <th class="text-right px-4 py-3 text-xs uppercase tracking-wider" style="color:#94a3b8;">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in items.filter(x => !x.deleted_at)" :key="item.id"
-            class="border-b hover:bg-white/[.02] transition-colors" style="border-color:#2a2a3a;">
-            <td class="px-4 py-3 font-medium text-white">{{ item.name }}</td>
-            <td class="px-4 py-3">
-              <span class="px-2 py-0.5 rounded text-xs"
-                :style="`background:${categoryColors[item.category]?.split(';')[0]}; ${categoryColors[item.category]?.split(';')[1]}`">
-                {{ item.category }}
-              </span>
-            </td>
-            <td class="px-4 py-3" style="color:#a78bfa;">{{ formatCurrency(item.price) }}</td>
-            <td class="px-4 py-3">
-              <div class="flex items-center justify-end gap-2">
-                <button @click="openEditItem(item)" class="p-1.5 rounded-lg hover:bg-white/10" style="color:#94a3b8;"><PencilIcon class="w-4 h-4" /></button>
-                <button @click="destroyItem(item)" class="p-1.5 rounded-lg hover:bg-red-500/10" style="color:#94a3b8;"><TrashIcon class="w-4 h-4" /></button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[600px]">
+          <thead>
+            <tr style="border-bottom:1px solid #2a2a3a;">
+              <th class="text-left px-4 py-3 text-xs uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">Nama</th>
+              <th class="text-left px-4 py-3 text-xs uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">Kategori</th>
+              <th class="text-left px-4 py-3 text-xs uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">Harga</th>
+              <th class="text-right px-4 py-3 text-xs uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in items.filter(x => !x.deleted_at)" :key="item.id"
+              class="border-b hover:bg-white/[.02] transition-colors" style="border-color:#2a2a3a;">
+              <td class="px-4 py-3 font-medium text-white whitespace-nowrap">{{ item.name }}</td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span class="px-2 py-0.5 rounded text-xs"
+                  :style="`background:${categoryColors[item.category]?.split(';')[0]}; ${categoryColors[item.category]?.split(';')[1]}`">
+                  {{ item.category }}
+                </span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap" style="color:#a78bfa;">{{ formatCurrency(item.price) }}</td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex items-center justify-end gap-2">
+                  <button @click="openEditItem(item)" class="p-1.5 rounded-lg hover:bg-white/10" style="color:#94a3b8;"><PencilIcon class="w-4 h-4" /></button>
+                  <button @click="destroyItem(item)" class="p-1.5 rounded-lg hover:bg-red-500/10" style="color:#94a3b8;"><TrashIcon class="w-4 h-4" /></button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Addons Table -->
     <div v-if="activeTab === 'addons'" class="rounded-xl overflow-hidden" style="background-color:#1a1a26; border:1px solid #2a2a3a;">
-      <table class="w-full text-sm">
-        <thead>
-          <tr style="border-bottom:1px solid #2a2a3a;">
-            <th class="text-left px-4 py-3 text-xs uppercase tracking-wider" style="color:#94a3b8;">Nama Add-on</th>
-            <th class="text-left px-4 py-3 text-xs uppercase tracking-wider" style="color:#94a3b8;">Harga</th>
-            <th class="text-right px-4 py-3 text-xs uppercase tracking-wider" style="color:#94a3b8;">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="a in addons.filter(x => !x.deleted_at)" :key="a.id"
-            class="border-b hover:bg-white/[.02]" style="border-color:#2a2a3a;">
-            <td class="px-4 py-3 font-medium text-white">{{ a.name }}</td>
-            <td class="px-4 py-3" style="color:#22d3ee;">{{ a.price > 0 ? formatCurrency(a.price) : 'Gratis' }}</td>
-            <td class="px-4 py-3">
-              <div class="flex items-center justify-end gap-2">
-                <button @click="openEditAddon(a)" class="p-1.5 rounded-lg hover:bg-white/10" style="color:#94a3b8;"><PencilIcon class="w-4 h-4" /></button>
-                <button @click="destroyAddon(a)" class="p-1.5 rounded-lg hover:bg-red-500/10" style="color:#94a3b8;"><TrashIcon class="w-4 h-4" /></button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[500px]">
+          <thead>
+            <tr style="border-bottom:1px solid #2a2a3a;">
+              <th class="text-left px-4 py-3 text-xs uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">Nama Add-on</th>
+              <th class="text-left px-4 py-3 text-xs uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">Harga</th>
+              <th class="text-right px-4 py-3 text-xs uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="a in addons.filter(x => !x.deleted_at)" :key="a.id"
+              class="border-b hover:bg-white/[.02]" style="border-color:#2a2a3a;">
+              <td class="px-4 py-3 font-medium text-white whitespace-nowrap">{{ a.name }}</td>
+              <td class="px-4 py-3 whitespace-nowrap" style="color:#22d3ee;">{{ a.price > 0 ? formatCurrency(a.price) : 'Gratis' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex items-center justify-end gap-2">
+                  <button @click="openEditAddon(a)" class="p-1.5 rounded-lg hover:bg-white/10" style="color:#94a3b8;"><PencilIcon class="w-4 h-4" /></button>
+                  <button @click="destroyAddon(a)" class="p-1.5 rounded-lg hover:bg-red-500/10" style="color:#94a3b8;"><TrashIcon class="w-4 h-4" /></button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Item Modal -->

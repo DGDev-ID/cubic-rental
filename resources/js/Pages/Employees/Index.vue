@@ -87,58 +87,60 @@ const inactive = computed(() => props.employees.filter(e => !e.deleted_at && e.s
 
     <!-- Table -->
     <div class="rounded-xl overflow-hidden" style="background-color:#1a1a26; border:1px solid #2a2a3a;">
-      <table class="w-full text-sm">
-        <thead>
-          <tr style="border-bottom:1px solid #2a2a3a;">
-            <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:#94a3b8;">#</th>
-            <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:#94a3b8;">Nama</th>
-            <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:#94a3b8;">Telepon</th>
-            <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:#94a3b8;">Status</th>
-            <th class="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider" style="color:#94a3b8;">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(emp, i) in employees.filter(e => !e.deleted_at)" :key="emp.id"
-            class="border-b transition-colors hover:bg-white/[0.02]" style="border-color:#2a2a3a;">
-            <td class="px-4 py-3" style="color:#94a3b8;">{{ i + 1 }}</td>
-            <td class="px-4 py-3">
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
-                  style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);">
-                  {{ emp.name[0].toUpperCase() }}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[600px]">
+          <thead>
+            <tr style="border-bottom:1px solid #2a2a3a;">
+              <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">#</th>
+              <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">Nama</th>
+              <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">Telepon</th>
+              <th class="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">Status</th>
+              <th class="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(emp, i) in employees.filter(e => !e.deleted_at)" :key="emp.id"
+              class="border-b transition-colors hover:bg-white/[0.02]" style="border-color:#2a2a3a;">
+              <td class="px-4 py-3 whitespace-nowrap" style="color:#94a3b8;">{{ i + 1 }}</td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
+                    style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);">
+                    {{ emp.name[0].toUpperCase() }}
+                  </div>
+                  <div>
+                    <p class="font-medium text-white">{{ emp.name }}</p>
+                    <p class="text-xs" style="color:#94a3b8;">{{ emp.address ?? '-' }}</p>
+                  </div>
                 </div>
-                <div>
-                  <p class="font-medium text-white">{{ emp.name }}</p>
-                  <p class="text-xs" style="color:#94a3b8;">{{ emp.address ?? '-' }}</p>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap" style="color:#e2e8f0;">{{ emp.phone ?? '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span class="px-2.5 py-1 rounded-full text-xs font-medium"
+                  :style="emp.status === 'active'
+                    ? 'background:rgba(16,185,129,.15); color:#34d399;'
+                    : 'background:rgba(239,68,68,.15); color:#f87171;'">
+                  {{ emp.status === 'active' ? 'Aktif' : 'Tidak Aktif' }}
+                </span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex items-center justify-end gap-2">
+                  <button @click="openEdit(emp)"
+                    class="p-1.5 rounded-lg transition-colors hover:bg-white/10"
+                    style="color:#94a3b8;">
+                    <PencilIcon class="w-4 h-4" />
+                  </button>
+                  <button @click="destroy(emp)"
+                    class="p-1.5 rounded-lg transition-colors hover:bg-red-500/10"
+                    style="color:#94a3b8;">
+                    <TrashIcon class="w-4 h-4" />
+                  </button>
                 </div>
-              </div>
-            </td>
-            <td class="px-4 py-3" style="color:#e2e8f0;">{{ emp.phone ?? '-' }}</td>
-            <td class="px-4 py-3">
-              <span class="px-2.5 py-1 rounded-full text-xs font-medium"
-                :style="emp.status === 'active'
-                  ? 'background:rgba(16,185,129,.15); color:#34d399;'
-                  : 'background:rgba(239,68,68,.15); color:#f87171;'">
-                {{ emp.status === 'active' ? 'Aktif' : 'Tidak Aktif' }}
-              </span>
-            </td>
-            <td class="px-4 py-3">
-              <div class="flex items-center justify-end gap-2">
-                <button @click="openEdit(emp)"
-                  class="p-1.5 rounded-lg transition-colors hover:bg-white/10"
-                  style="color:#94a3b8;">
-                  <PencilIcon class="w-4 h-4" />
-                </button>
-                <button @click="destroy(emp)"
-                  class="p-1.5 rounded-lg transition-colors hover:bg-red-500/10"
-                  style="color:#94a3b8;">
-                  <TrashIcon class="w-4 h-4" />
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Modal -->

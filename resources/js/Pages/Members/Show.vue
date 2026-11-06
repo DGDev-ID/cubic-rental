@@ -264,46 +264,48 @@ const rentalStatusLabels: Record<string, string> = {
       </div>
 
       <div class="rounded-xl overflow-hidden" style="border:1px solid #2a2a3a;">
-        <table class="w-full text-sm">
-          <thead style="background:#12121a;">
-            <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Tgl Deposit</th>
-              <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Paket</th>
-              <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Bayar</th>
-              <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Kasir</th>
-              <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Metode</th>
-              <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Jam Didapat</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="deposits.length === 0">
-              <td colspan="6" class="px-4 py-10 text-center text-xs" style="color:#64748b;">
-                Belum ada riwayat deposit
-              </td>
-            </tr>
-            <tr
-              v-for="d in deposits" :key="d.id"
-              class="transition-colors hover:bg-white/[0.02]"
-              style="border-top:1px solid #1a1a26;">
-              <td class="px-4 py-3 text-xs" style="color:#94a3b8;">{{ formatDt(d.created_at) }}</td>
-              <td class="px-4 py-3 font-medium text-white">{{ d.package?.name ?? '-' }}</td>
-              <td class="px-4 py-3 font-semibold" style="color:#a78bfa;">{{ formatCurrency(d.amount) }}</td>
-              <td class="px-4 py-3 text-sm" style="color:#94a3b8;">{{ d.employee?.name ?? '-' }}</td>
-              <td class="px-4 py-3">
-                <span
-                  class="text-xs px-2 py-0.5 rounded-full uppercase font-semibold"
-                  :style="d.payment_method === 'cash'
-                    ? 'background:rgba(34,197,94,.15); color:#22c55e;'
-                    : 'background:rgba(34,211,238,.15); color:#22d3ee;'">
-                  {{ d.payment_method }}
-                </span>
-              </td>
-              <td class="px-4 py-3 font-semibold" style="color:#22d3ee;">
-                {{ d.minutes_credited / 60 }} jam
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm min-w-[650px]">
+            <thead style="background:#12121a;">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Tgl Deposit</th>
+                <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Paket</th>
+                <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Bayar</th>
+                <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Kasir</th>
+                <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Metode</th>
+                <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Jam Didapat</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="deposits.length === 0">
+                <td colspan="6" class="px-4 py-10 text-center text-xs" style="color:#64748b;">
+                  Belum ada riwayat deposit
+                </td>
+              </tr>
+              <tr
+                v-for="d in deposits" :key="d.id"
+                class="transition-colors hover:bg-white/[0.02]"
+                style="border-top:1px solid #1a1a26;">
+                <td class="px-4 py-3 text-xs whitespace-nowrap" style="color:#94a3b8;">{{ formatDt(d.created_at) }}</td>
+                <td class="px-4 py-3 font-medium text-white whitespace-nowrap">{{ d.package?.name ?? '-' }}</td>
+                <td class="px-4 py-3 font-semibold whitespace-nowrap" style="color:#a78bfa;">{{ formatCurrency(d.amount) }}</td>
+                <td class="px-4 py-3 text-sm whitespace-nowrap" style="color:#94a3b8;">{{ d.employee?.name ?? '-' }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <span
+                    class="text-xs px-2 py-0.5 rounded-full uppercase font-semibold"
+                    :style="d.payment_method === 'cash'
+                      ? 'background:rgba(34,197,94,.15); color:#22c55e;'
+                      : 'background:rgba(34,211,238,.15); color:#22d3ee;'">
+                    {{ d.payment_method }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 font-semibold whitespace-nowrap" style="color:#22d3ee;">
+                  {{ d.minutes_credited / 60 }} jam
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -318,59 +320,61 @@ const rentalStatusLabels: Record<string, string> = {
       </div>
 
       <div class="rounded-xl overflow-hidden" style="border:1px solid #2a2a3a;">
-        <table class="w-full text-sm">
-          <thead style="background:#12121a;">
-            <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Tanggal</th>
-              <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Console</th>
-              <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Durasi</th>
-              <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Jam Terpotong</th>
-              <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">FnB</th>
-              <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Total FnB</th>
-              <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="rentals.length === 0">
-              <td colspan="7" class="px-4 py-10 text-center text-xs" style="color:#64748b;">
-                Belum ada riwayat sesi main
-              </td>
-            </tr>
-            <tr
-              v-for="r in rentals" :key="r.id"
-              class="transition-colors hover:bg-white/[0.02]"
-              style="border-top:1px solid #1a1a26;">
-              <td class="px-4 py-3">
-                <p class="text-xs text-white">{{ formatDt(r.started_at) }}</p>
-                <p class="text-[11px] font-mono mt-0.5" style="color:#64748b;">{{ r.transaction_code }}</p>
-              </td>
-              <td class="px-4 py-3 text-white font-medium">{{ r.console?.name ?? '-' }}</td>
-              <td class="px-4 py-3 text-xs" style="color:#94a3b8;">
-                {{ formatDuration(r.started_at, r.ended_at) }}
-              </td>
-              <td class="px-4 py-3 font-semibold" style="color:#22d3ee;">
-                {{ r.member_deducted_minutes > 0 ? formatMinutes(r.member_deducted_minutes) : '-' }}
-              </td>
-              <td class="px-4 py-3">
-                <span v-if="r.fnb_amount > 0">
-                  <UtensilsCrossed :size="13" style="color:#10b981;" class="inline mr-1" />
-                  <span class="text-xs" style="color:#10b981;">Ada</span>
-                </span>
-                <span v-else class="text-xs" style="color:#64748b;">-</span>
-              </td>
-              <td class="px-4 py-3 font-semibold" style="color:#10b981;">
-                {{ r.fnb_amount > 0 ? formatCurrency(r.fnb_amount) : '-' }}
-              </td>
-              <td class="px-4 py-3">
-                <span
-                  class="text-xs px-2 py-1 rounded-full"
-                  :style="`background:${rentalStatusColors[r.status] ?? '#94a3b8'}22; color:${rentalStatusColors[r.status] ?? '#94a3b8'}; border:1px solid ${rentalStatusColors[r.status] ?? '#94a3b8'}44;`">
-                  {{ rentalStatusLabels[r.status] ?? r.status }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm min-w-[750px]">
+            <thead style="background:#12121a;">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Tanggal</th>
+                <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Console</th>
+                <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Durasi</th>
+                <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Jam Terpotong</th>
+                <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">FnB</th>
+                <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Total FnB</th>
+                <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="rentals.length === 0">
+                <td colspan="7" class="px-4 py-10 text-center text-xs" style="color:#64748b;">
+                  Belum ada riwayat sesi main
+                </td>
+              </tr>
+              <tr
+                v-for="r in rentals" :key="r.id"
+                class="transition-colors hover:bg-white/[0.02]"
+                style="border-top:1px solid #1a1a26;">
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <p class="text-xs text-white">{{ formatDt(r.started_at) }}</p>
+                  <p class="text-[11px] font-mono mt-0.5" style="color:#64748b;">{{ r.transaction_code }}</p>
+                </td>
+                <td class="px-4 py-3 text-white font-medium whitespace-nowrap">{{ r.console?.name ?? '-' }}</td>
+                <td class="px-4 py-3 text-xs whitespace-nowrap" style="color:#94a3b8;">
+                  {{ formatDuration(r.started_at, r.ended_at) }}
+                </td>
+                <td class="px-4 py-3 font-semibold whitespace-nowrap" style="color:#22d3ee;">
+                  {{ r.member_deducted_minutes > 0 ? formatMinutes(r.member_deducted_minutes) : '-' }}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <span v-if="r.fnb_amount > 0">
+                    <UtensilsCrossed :size="13" style="color:#10b981;" class="inline mr-1" />
+                    <span class="text-xs" style="color:#10b981;">Ada</span>
+                  </span>
+                  <span v-else class="text-xs" style="color:#64748b;">-</span>
+                </td>
+                <td class="px-4 py-3 font-semibold whitespace-nowrap" style="color:#10b981;">
+                  {{ r.fnb_amount > 0 ? formatCurrency(r.fnb_amount) : '-' }}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <span
+                    class="text-xs px-2 py-1 rounded-full"
+                    :style="`background:${rentalStatusColors[r.status] ?? '#94a3b8'}22; color:${rentalStatusColors[r.status] ?? '#94a3b8'}; border:1px solid ${rentalStatusColors[r.status] ?? '#94a3b8'}44;`">
+                    {{ rentalStatusLabels[r.status] ?? r.status }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 

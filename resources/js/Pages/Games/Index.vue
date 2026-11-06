@@ -38,37 +38,39 @@ function destroy(g: Game) {
     </template>
 
     <div class="rounded-xl overflow-hidden" style="background-color:#1a1a26; border:1px solid #2a2a3a;">
-      <table class="w-full text-sm">
-        <thead>
-          <tr style="border-bottom:1px solid #2a2a3a;">
-            <th class="text-left px-4 py-3 text-xs uppercase tracking-wider" style="color:#94a3b8;">#</th>
-            <th class="text-left px-4 py-3 text-xs uppercase tracking-wider" style="color:#94a3b8;">Nama Game</th>
-            <th class="text-left px-4 py-3 text-xs uppercase tracking-wider" style="color:#94a3b8;">Genre</th>
-            <th class="text-left px-4 py-3 text-xs uppercase tracking-wider" style="color:#94a3b8;">Multiplayer</th>
-            <th class="text-right px-4 py-3 text-xs uppercase tracking-wider" style="color:#94a3b8;">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(g, i) in games.filter(x => !x.deleted_at)" :key="g.id"
-            class="border-b transition-colors hover:bg-white/[.02]" style="border-color:#2a2a3a;">
-            <td class="px-4 py-3" style="color:#94a3b8;">{{ i + 1 }}</td>
-            <td class="px-4 py-3 font-medium text-white">{{ g.name }}</td>
-            <td class="px-4 py-3" style="color:#e2e8f0;">{{ g.genre ?? '-' }}</td>
-            <td class="px-4 py-3">
-              <span class="px-2 py-0.5 rounded-full text-xs"
-                :style="g.is_multiplayer ? 'background:rgba(16,185,129,.15); color:#34d399;' : 'background:rgba(100,100,120,.15); color:#94a3b8;'">
-                {{ g.is_multiplayer ? 'Ya' : 'Tidak' }}
-              </span>
-            </td>
-            <td class="px-4 py-3">
-              <div class="flex items-center justify-end gap-2">
-                <button @click="openEdit(g)" class="p-1.5 rounded-lg hover:bg-white/10" style="color:#94a3b8;"><PencilIcon class="w-4 h-4" /></button>
-                <button @click="destroy(g)" class="p-1.5 rounded-lg hover:bg-red-500/10" style="color:#94a3b8;"><TrashIcon class="w-4 h-4" /></button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[550px]">
+          <thead>
+            <tr style="border-bottom:1px solid #2a2a3a;">
+              <th class="text-left px-4 py-3 text-xs uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">#</th>
+              <th class="text-left px-4 py-3 text-xs uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">Nama Game</th>
+              <th class="text-left px-4 py-3 text-xs uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">Genre</th>
+              <th class="text-left px-4 py-3 text-xs uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">Multiplayer</th>
+              <th class="text-right px-4 py-3 text-xs uppercase tracking-wider whitespace-nowrap" style="color:#94a3b8;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(g, i) in games.filter(x => !x.deleted_at)" :key="g.id"
+              class="border-b transition-colors hover:bg-white/[.02]" style="border-color:#2a2a3a;">
+              <td class="px-4 py-3 whitespace-nowrap" style="color:#94a3b8;">{{ i + 1 }}</td>
+              <td class="px-4 py-3 font-medium text-white whitespace-nowrap">{{ g.name }}</td>
+              <td class="px-4 py-3 whitespace-nowrap" style="color:#e2e8f0;">{{ g.genre ?? '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span class="px-2 py-0.5 rounded-full text-xs"
+                  :style="g.is_multiplayer ? 'background:rgba(16,185,129,.15); color:#34d399;' : 'background:rgba(100,100,120,.15); color:#94a3b8;'">
+                  {{ g.is_multiplayer ? 'Ya' : 'Tidak' }}
+                </span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex items-center justify-end gap-2">
+                  <button @click="openEdit(g)" class="p-1.5 rounded-lg hover:bg-white/10" style="color:#94a3b8;"><PencilIcon class="w-4 h-4" /></button>
+                  <button @click="destroy(g)" class="p-1.5 rounded-lg hover:bg-red-500/10" style="color:#94a3b8;"><TrashIcon class="w-4 h-4" /></button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <GamingModal :show="showModal" :title="editing ? 'Edit Game' : 'Tambah Game'" @close="showModal = false">

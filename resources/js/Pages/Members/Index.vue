@@ -245,19 +245,20 @@ function typeIcon(t: string) {
 
     <!-- Table -->
     <div class="rounded-xl overflow-hidden" style="border:1px solid #2a2a3a;">
-      <table class="w-full text-sm">
-        <thead style="background:#12121a;">
-          <tr>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">No. Member</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Nama</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">No. Telp</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Tipe</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Sisa Jam</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Total Deposit</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Status</th>
-            <th class="px-4 py-3"></th>
-          </tr>
-        </thead>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[850px]">
+          <thead style="background:#12121a;">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">No. Member</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Nama</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">No. Telp</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Tipe</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Sisa Jam</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Total Deposit</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Status</th>
+              <th class="px-4 py-3 whitespace-nowrap"></th>
+            </tr>
+          </thead>
         <tbody>
           <tr v-if="members.data.length === 0">
             <td colspan="8" class="px-4 py-12 text-center text-xs" style="color:#64748b;">
@@ -340,6 +341,7 @@ function typeIcon(t: string) {
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
 
     <!-- Pagination -->

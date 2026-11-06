@@ -124,42 +124,44 @@ function doExport() {
 
     <!-- Table -->
     <div class="rounded-xl overflow-hidden" style="border:1px solid #2a2a3a;">
-      <table class="w-full text-sm">
-        <thead style="background:#12121a;">
-          <tr>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Tanggal</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Keterangan</th>
-            <th class="px-4 py-3 text-left text-xs font-medium" style="color:#64748b;">Operator</th>
-            <th class="px-4 py-3 text-right text-xs font-medium" style="color:#64748b;">Nominal</th>
-            <th class="px-4 py-3"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="outbounds.data.length === 0">
-            <td colspan="5" class="px-4 py-10 text-center text-xs" style="color:#64748b;">Belum ada pengeluaran</td>
-          </tr>
-          <tr v-for="o in outbounds.data" :key="o.id" style="border-top:1px solid #1a1a26;">
-            <td class="px-4 py-3 text-xs" style="color:#94a3b8;">{{ formatDate(o.date) }}</td>
-            <td class="px-4 py-3 text-white">{{ o.notes }}</td>
-            <td class="px-4 py-3 text-xs" style="color:#94a3b8;">{{ o.employee?.name ?? '-' }}</td>
-            <td class="px-4 py-3 text-right font-bold" style="color:#ef4444;">{{ formatCurrency(o.nominal) }}</td>
-            <td class="px-4 py-3">
-              <div class="flex gap-2 justify-end">
-                <button @click="openEdit(o)"
-                  class="text-xs px-3 py-1.5 rounded-xl flex items-center gap-1"
-                  style="background:rgba(59,130,246,.2); border:1px solid rgba(59,130,246,.3); color:#60a5fa;">
-                  <Pencil :size="11" /> Edit
-                </button>
-                <button @click="destroy(o.id)"
-                  class="text-xs px-3 py-1.5 rounded-xl flex items-center gap-1"
-                  style="background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.3); color:#ef4444;">
-                  <Trash2 :size="11" /> Hapus
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[650px]">
+          <thead style="background:#12121a;">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Tanggal</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Keterangan</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Operator</th>
+              <th class="px-4 py-3 text-right text-xs font-medium whitespace-nowrap" style="color:#64748b;">Nominal</th>
+              <th class="px-4 py-3 whitespace-nowrap"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="outbounds.data.length === 0">
+              <td colspan="5" class="px-4 py-10 text-center text-xs" style="color:#64748b;">Belum ada pengeluaran</td>
+            </tr>
+            <tr v-for="o in outbounds.data" :key="o.id" style="border-top:1px solid #1a1a26;">
+              <td class="px-4 py-3 text-xs whitespace-nowrap" style="color:#94a3b8;">{{ formatDate(o.date) }}</td>
+              <td class="px-4 py-3 text-white">{{ o.notes }}</td>
+              <td class="px-4 py-3 text-xs whitespace-nowrap" style="color:#94a3b8;">{{ o.employee?.name ?? '-' }}</td>
+              <td class="px-4 py-3 text-right font-bold whitespace-nowrap" style="color:#ef4444;">{{ formatCurrency(o.nominal) }}</td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex gap-2 justify-end">
+                  <button @click="openEdit(o)"
+                    class="text-xs px-3 py-1.5 rounded-xl flex items-center gap-1"
+                    style="background:rgba(59,130,246,.2); border:1px solid rgba(59,130,246,.3); color:#60a5fa;">
+                    <Pencil :size="11" /> Edit
+                  </button>
+                  <button @click="destroy(o.id)"
+                    class="text-xs px-3 py-1.5 rounded-xl flex items-center gap-1"
+                    style="background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.3); color:#ef4444;">
+                    <Trash2 :size="11" /> Hapus
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Pagination -->

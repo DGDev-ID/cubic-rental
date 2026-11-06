@@ -33,3 +33,9 @@ html, body {
     padding: 1px;
     border-radius: 12px;
 }
+
+/* Enable smooth touch scrolling for mobile tables */
+.overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+}
