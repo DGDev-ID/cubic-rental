@@ -198,6 +198,27 @@ class RentalController extends Controller
         return redirect()->route('rentals.receipt', $rental)->with('success', 'Pembayaran berhasil.');
     }
 
+    public function updatePaymentMethod(Request $request, Rental $rental): RedirectResponse
+    {
+        $request->validate([
+            'payment_id' => 'nullable|exists:rental_payments,id',
+            'method'     => 'required|in:cash,qris,transfer,debit',
+        ]);
+
+        if ($request->payment_id) {
+            $payment = $rental->payments()->findOrFail($request->payment_id);
+            $payment->update([
+                'method' => $request->method,
+            ]);
+        } else {
+            $rental->payments()->update([
+                'method' => $request->method,
+            ]);
+        }
+
+        return back()->with('success', 'Metode pembayaran berhasil diubah ke ' . strtoupper($request->method) . '.');
+    }
+
     public function receipt(Rental $rental): Response
     {
         $rental->load(['console', 'employee', 'cashier', 'fnbItems.fnbItem', 'extensions', 'payments']);

@@ -142,6 +142,19 @@ class FnbOrderController extends Controller
         return back()->with('success', 'Catatan pesanan FnB berhasil diperbarui.');
     }
 
+    public function updatePaymentMethod(Request $request, FnbOrder $fnbOrder): RedirectResponse
+    {
+        $request->validate([
+            'method' => 'required|in:cash,qris,transfer,debit',
+        ]);
+
+        $fnbOrder->update([
+            'payment_method' => $request->method,
+        ]);
+
+        return back()->with('success', 'Metode pembayaran berhasil diubah ke ' . strtoupper($request->method) . '.');
+    }
+
     public function destroy(FnbOrder $fnbOrder): RedirectResponse
     {
         $fnbOrder->delete();

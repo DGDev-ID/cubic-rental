@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { Printer, ArrowLeft } from 'lucide-vue-next'
+import { ref } from 'vue'
+import { useForm } from '@inertiajs/vue3'
+import GamingModal from '@/Components/GamingModal.vue'
+import { Printer, ArrowLeft, CreditCard } from 'lucide-vue-next'
+
 const printPage = () => window.print()
 
-defineProps<{
+const props = defineProps<{
   rental: {
     id: number; transaction_code: string; customer_name: string; rental_type: string;
     started_at: string; ended_at: string; notes: string | null;
@@ -11,10 +15,38 @@ defineProps<{
     employee: { name: string }
     cashier?: { name: string }
     fnb_items: { fnb_item?: { name: string }; fnb_item_name?: string; qty?: number; quantity?: number; unit_price: number; subtotal: number; addons: { name: string; price: number }[] }[]
-    payments: { method: string; amount: number; created_at: string }[]
+    payments: { id: number; method: string; amount: number; created_at: string }[]
   }
   store_name: string
 }>()
+
+const showEditPayment = ref(false)
+const selectedPaymentId = ref<number | null>(null)
+const selectedMethod = ref<'cash' | 'qris' | 'transfer'>('cash')
+
+const paymentForm = useForm({
+  payment_id: null as number | null,
+  method: 'cash' as 'cash' | 'qris' | 'transfer',
+})
+
+function openEditPayment() {
+  if (props.rental.payments && props.rental.payments.length > 0) {
+    selectedPaymentId.value = props.rental.payments[props.rental.payments.length - 1].id
+    selectedMethod.value = (props.rental.payments[props.rental.payments.length - 1].method as any) || 'cash'
+  }
+  showEditPayment.value = true
+}
+
+function submitPaymentMethod() {
+  paymentForm.payment_id = selectedPaymentId.value
+  paymentForm.method = selectedMethod.value
+  paymentForm.patch(route('rentals.update-payment-method', props.rental.id), {
+    preserveScroll: true,
+    onSuccess: () => {
+      showEditPayment.value = false
+    }
+  })
+}
 
 function formatCurrency(v: number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v)
@@ -30,11 +62,18 @@ function methodLabel(m: string) {
 
 <template>
   <div class="receipt-container">
-    <div class="no-print mb-4 flex gap-2">
+    <div class="no-print mb-4 flex flex-wrap gap-2">
       <button @click="printPage"
         class="px-6 py-2 rounded-xl text-white font-medium flex items-center gap-2"
         style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);">
         <Printer :size="15" /> Cetak Struk
+      </button>
+      <button v-if="rental.payments && rental.payments.length > 0"
+        @click="openEditPayment"
+        type="button"
+        class="px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-all hover:bg-amber-500/20"
+        style="background:#1a1a26; border:1px solid rgba(245,158,11,.45); color:#fbbf24;">
+        <CreditCard :size="15" /> Ganti Metode Bayar
       </button>
       <a :href="route('rentals.show', rental.id)"
         class="px-6 py-2 rounded-xl font-medium flex items-center gap-2"
@@ -103,6 +142,59 @@ function methodLabel(m: string) {
         <p>Have fun & come back again 🎮</p>
       </div>
     </div>
+
+    <!-- Modal Ubah Metode Pembayaran -->
+    <GamingModal :show="showEditPayment" title="Ubah Metode Pembayaran" @close="showEditPayment = false">
+      <form @submit.prevent="submitPaymentMethod" class="space-y-4">
+        <p class="text-xs text-slate-400">
+          Ubah metode pembayaran jika customer berganti metode (misal batal QRIS dan bayar tunai/Cash). Data di struk, riwayat, dan laporan Excel akan langsung disesuaikan secara otomatis.
+        </p>
+
+        <!-- Jika ada multi payments, pilih payment mana yang diubah -->
+        <div v-if="rental.payments && rental.payments.length > 1" class="space-y-1">
+          <label class="block text-xs font-medium text-slate-300">Pilih Transaksi Pembayaran:</label>
+          <select v-model="selectedPaymentId"
+            class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+            style="background:#12121a; border:1px solid #2a2a3a;">
+            <option v-for="(p, idx) in rental.payments" :key="p.id" :value="p.id">
+              Pembayaran ke-{{ idx + 1 }}: {{ methodLabel(p.method) }} – {{ formatCurrency(p.amount) }}
+            </option>
+          </select>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block text-xs font-medium text-slate-300">Pilih Metode Baru:</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button v-for="m in [
+              { key: 'cash', label: 'Cash (Tunai)' },
+              { key: 'qris', label: 'QRIS' },
+              { key: 'transfer', label: 'Transfer' },
+            ]" :key="m.key"
+              type="button"
+              @click="selectedMethod = m.key as any"
+              class="py-2.5 px-2 rounded-xl text-xs font-bold transition-all text-center flex flex-col items-center justify-center gap-1"
+              :style="selectedMethod === m.key
+                ? 'background:rgba(245,158,11,.2); border:1.5px solid #f59e0b; color:#fbbf24;'
+                : 'background:#12121a; border:1px solid #2a2a3a; color:#94a3b8;'">
+              <span>{{ m.label }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex gap-2 justify-end pt-2">
+          <button type="button" @click="showEditPayment = false"
+            class="px-4 py-2 rounded-xl text-xs font-medium"
+            style="background:#12121a; border:1px solid #2a2a3a; color:#94a3b8;">
+            Batal
+          </button>
+          <button type="submit" :disabled="paymentForm.processing"
+            class="px-5 py-2 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 disabled:opacity-50"
+            style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+            Simpan Perubahan
+          </button>
+        </div>
+      </form>
+    </GamingModal>
   </div>
 </template>
 

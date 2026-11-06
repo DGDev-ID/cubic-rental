@@ -474,7 +474,8 @@ function submitResume() {
 
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         <div v-for="r in finishedList" :key="r.id"
-          class="rounded-xl p-4 flex flex-col justify-between"
+          class="rounded-xl p-4 flex flex-col justify-between cursor-pointer transition-all hover:scale-[1.01] hover:shadow-lg"
+          @click="router.visit(route('rentals.show', r.id))"
           style="background:#1a1a26; border:1px solid rgba(245,158,11,.45); box-shadow: 0 4px 20px rgba(245,158,11,.08);">
           <div>
             <div class="flex items-start justify-between gap-2 mb-3">
@@ -523,7 +524,7 @@ function submitResume() {
           <!-- Actions: Bayar & Tambah Waktu (Lanjut Main) -->
           <div class="grid grid-cols-2 gap-2 pt-2 border-t border-[#2a2a3a]">
             <!-- Tambah Waktu Kembali -->
-            <button @click="openResume(r)"
+            <button @click.stop="openResume(r)"
               class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all hover:opacity-90"
               style="background:rgba(59,130,246,.15); color:#60a5fa; border:1px solid rgba(59,130,246,.35);"
               title="Customer ingin lanjut main lagi">
@@ -531,7 +532,7 @@ function submitResume() {
             </button>
 
             <!-- Bayar Sekarang -->
-            <a :href="route('rentals.payment', r.id)"
+            <a @click.stop :href="route('rentals.payment', r.id)"
               class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold text-black transition-all hover:opacity-90 font-bold"
               style="background:linear-gradient(135deg,#f59e0b,#d97706); box-shadow: 0 2px 10px rgba(245,158,11,.2);">
               <CreditCard :size="14" /> Bayar Sekarang

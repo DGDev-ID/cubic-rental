@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { Printer, ArrowLeft } from 'lucide-vue-next'
+import { ref } from 'vue'
+import { useForm } from '@inertiajs/vue3'
+import { Printer, ArrowLeft, CreditCard } from 'lucide-vue-next'
+import GamingModal from '@/Components/GamingModal.vue'
 
 const printPage = () => window.print()
 
-defineProps<{
+const props = defineProps<{
   order: {
     id: number
     code: string
@@ -28,6 +31,22 @@ defineProps<{
   store_name: string
 }>()
 
+const showEditPayment = ref(false)
+const selectedMethod = ref<'cash' | 'qris' | 'transfer' | 'debit'>((props.order.payment_method as any) || 'cash')
+const paymentForm = useForm({
+  method: (props.order.payment_method as any) || 'cash',
+})
+
+function submitPaymentMethod() {
+  paymentForm.method = selectedMethod.value
+  paymentForm.patch(route('fnb-orders.update-payment-method', props.order.id), {
+    preserveScroll: true,
+    onSuccess: () => {
+      showEditPayment.value = false
+    },
+  })
+}
+
 function formatCurrency(v: number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v)
 }
@@ -48,6 +67,11 @@ function methodLabel(m: string | null) {
         class="px-6 py-2 rounded-xl text-white font-medium flex items-center gap-2"
         style="background:linear-gradient(135deg,#10b981,#059669);">
         <Printer :size="15" /> Cetak Struk
+      </button>
+      <button type="button" @click="showEditPayment = true"
+        class="px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-all hover:bg-amber-500/20"
+        style="background:#1a1a26; border:1px solid rgba(245,158,11,.45); color:#fbbf24;">
+        <CreditCard :size="15" /> Ganti Metode Bayar
       </button>
       <a :href="route('rentals.history')"
         class="px-6 py-2 rounded-xl font-medium flex items-center gap-2"
@@ -119,6 +143,47 @@ function methodLabel(m: string | null) {
         <p>Have fun & enjoy your meal 🎮☕</p>
       </div>
     </div>
+
+    <!-- Modal Ubah Metode Pembayaran FnB -->
+    <GamingModal :show="showEditPayment" title="Ubah Metode Pembayaran" @close="showEditPayment = false">
+      <form @submit.prevent="submitPaymentMethod" class="space-y-4">
+        <p class="text-xs text-slate-400">
+          Ubah metode pembayaran jika customer berganti metode (misal batal QRIS dan bayar tunai/Cash). Data di struk dan riwayat akan langsung disesuaikan secara otomatis.
+        </p>
+
+        <div class="space-y-1.5">
+          <label class="block text-xs font-medium text-slate-300">Pilih Metode Baru:</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button v-for="m in [
+              { key: 'cash', label: 'Cash (Tunai)' },
+              { key: 'qris', label: 'QRIS' },
+              { key: 'transfer', label: 'Transfer' },
+            ]" :key="m.key"
+              type="button"
+              @click="selectedMethod = m.key as any"
+              class="py-2.5 px-2 rounded-xl text-xs font-bold transition-all text-center flex flex-col items-center justify-center gap-1"
+              :style="selectedMethod === m.key
+                ? 'background:rgba(245,158,11,.2); border:1.5px solid #f59e0b; color:#fbbf24;'
+                : 'background:#12121a; border:1px solid #2a2a3a; color:#94a3b8;'">
+              <span>{{ m.label }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex gap-2 justify-end pt-2">
+          <button type="button" @click="showEditPayment = false"
+            class="px-4 py-2 rounded-xl text-xs font-medium"
+            style="background:#12121a; border:1px solid #2a2a3a; color:#94a3b8;">
+            Batal
+          </button>
+          <button type="submit" :disabled="paymentForm.processing"
+            class="px-5 py-2 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 disabled:opacity-50"
+            style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+            Simpan Perubahan
+          </button>
+        </div>
+      </form>
+    </GamingModal>
   </div>
 </template>
 

@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { router, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import GamingModal from '@/Components/GamingModal.vue'
-import { Download, TrendingUp, Users, BarChart2, ChevronLeft, ChevronRight, Filter, X, Calendar, StickyNote, Trash2, Gamepad2, UtensilsCrossed, RotateCcw, ExternalLink, Receipt, Clock } from 'lucide-vue-next'
+import { Download, TrendingUp, Users, BarChart2, ChevronLeft, ChevronRight, Filter, X, Calendar, StickyNote, Trash2, Gamepad2, UtensilsCrossed, RotateCcw, ExternalLink, Receipt, Clock, CreditCard } from 'lucide-vue-next'
 
 interface RentalRow {
   id: number; transaction_code: string; customer_name: string; rental_type: string;
@@ -13,7 +13,7 @@ interface RentalRow {
   console: { name: string; type: string; price_per_hour?: number }
   employee: { name: string }
   cashier?: { name: string }
-  payments: { method: string; amount: number; notes?: string }[]
+  payments: { id?: number; method: string; amount: number; notes?: string }[]
   fnb_items?: { id: number; qty: number; unit_price: number; subtotal: number; fnb_item?: { name: string }; addons?: { name: string; price: number }[] }[]
   extensions?: { id: number; added_minutes: number; additional_price: number }[]
 }
@@ -376,6 +376,68 @@ function confirmDelete() {
       },
       onError: () => {
         isDeleting.value = false
+      }
+    })
+  }
+}
+
+// Ubah Metode Pembayaran Modal
+const showEditPaymentModal = ref(false)
+const editingPaymentRental = ref<RentalRow | null>(null)
+const editingPaymentFnb = ref<any | null>(null)
+const selectedPaymentMethod = ref<'cash' | 'qris' | 'transfer' | 'debit'>('cash')
+const selectedPaymentId = ref<number | null>(null)
+
+const paymentMethodForm = useForm({
+  method: 'cash',
+  payment_id: null as number | null,
+})
+
+function openEditPaymentRental(r: RentalRow) {
+  editingPaymentRental.value = r
+  editingPaymentFnb.value = null
+  selectedPaymentId.value = r.payments?.[0]?.id ?? null
+  selectedPaymentMethod.value = (r.payments?.[0]?.method as any) || 'cash'
+  showEditPaymentModal.value = true
+}
+
+function openEditPaymentFnb(r: any) {
+  editingPaymentFnb.value = r
+  editingPaymentRental.value = null
+  selectedPaymentId.value = null
+  selectedPaymentMethod.value = (r.payment_method as any) || 'cash'
+  showEditPaymentModal.value = true
+}
+
+function savePaymentMethod() {
+  if (editingPaymentRental.value) {
+    paymentMethodForm.method = selectedPaymentMethod.value
+    paymentMethodForm.payment_id = selectedPaymentId.value
+    paymentMethodForm.patch(route('rentals.update-payment-method', editingPaymentRental.value.id), {
+      preserveScroll: true,
+      onSuccess: () => {
+        if (selectedDetail.value && selectedDetail.value.id === editingPaymentRental.value?.id) {
+          if (selectedDetail.value.payments) {
+            selectedDetail.value.payments.forEach(p => {
+              if (!selectedPaymentId.value || p.id === selectedPaymentId.value) {
+                p.method = selectedPaymentMethod.value
+              }
+            })
+          }
+        }
+        showEditPaymentModal.value = false
+      }
+    })
+  } else if (editingPaymentFnb.value) {
+    paymentMethodForm.method = selectedPaymentMethod.value
+    paymentMethodForm.payment_id = null
+    paymentMethodForm.patch(route('fnb-orders.update-payment-method', editingPaymentFnb.value.id), {
+      preserveScroll: true,
+      onSuccess: () => {
+        if (selectedFnbDetail.value && selectedFnbDetail.value.id === editingPaymentFnb.value?.id) {
+          selectedFnbDetail.value.payment_method = selectedPaymentMethod.value
+        }
+        showEditPaymentModal.value = false
       }
     })
   }
@@ -920,7 +982,13 @@ function confirmDelete() {
 
         <!-- Payments -->
         <div class="pt-2 border-t border-slate-800">
-          <span class="text-[11px] text-slate-400 block mb-1">Metode Pembayaran:</span>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[11px] text-slate-400">Metode Pembayaran:</span>
+            <button type="button" @click="openEditPaymentRental(selectedDetail)"
+              class="text-[11px] px-2 py-0.5 rounded-lg text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 flex items-center gap-1 transition-all">
+              <CreditCard :size="12" /> Ubah Metode
+            </button>
+          </div>
           <div class="flex flex-wrap gap-1.5">
             <span v-for="p in selectedDetail.payments" :key="p.method + p.amount"
               class="text-xs px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1"
@@ -988,7 +1056,13 @@ function confirmDelete() {
           <p class="text-white font-semibold mt-0.5">{{ selectedFnbDetail.employee?.name || '(dihapus)' }}</p>
         </div>
         <div>
-          <span class="text-slate-400">Metode Bayar</span>
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400">Metode Bayar</span>
+            <button type="button" @click="openEditPaymentFnb(selectedFnbDetail)"
+              class="text-[10px] px-1.5 py-0.5 rounded text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 flex items-center gap-1 transition-all">
+              <CreditCard :size="10" /> Ubah
+            </button>
+          </div>
           <p class="text-emerald-400 font-bold uppercase mt-0.5">{{ selectedFnbDetail.payment_method }}</p>
         </div>
       </div>
@@ -1088,6 +1162,61 @@ function confirmDelete() {
         </button>
       </div>
     </div>
+  </GamingModal>
+
+  <!-- Ubah Metode Pembayaran Modal -->
+  <GamingModal :show="showEditPaymentModal"
+    :title="`Ubah Metode Pembayaran – ${editingPaymentRental ? editingPaymentRental.transaction_code : (editingPaymentFnb?.code || '')}`"
+    @close="showEditPaymentModal = false">
+    <form @submit.prevent="savePaymentMethod" class="space-y-4">
+      <p class="text-xs text-slate-400">
+        Ubah metode pembayaran jika customer berganti metode (misal batal QRIS dan bayar tunai/Cash). Data di struk, riwayat, dan laporan Excel akan langsung disesuaikan secara otomatis.
+      </p>
+
+      <!-- Jika rental memiliki lebih dari 1 payment -->
+      <div v-if="editingPaymentRental && editingPaymentRental.payments && editingPaymentRental.payments.length > 1" class="space-y-1">
+        <label class="block text-xs font-medium text-slate-300">Pilih Transaksi Pembayaran:</label>
+        <select v-model="selectedPaymentId"
+          class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+          style="background:#12121a; border:1px solid #2a2a3a;">
+          <option v-for="(p, idx) in editingPaymentRental.payments" :key="p.id || idx" :value="p.id">
+            Pembayaran ke-{{ idx + 1 }}: {{ p.method }} – {{ formatCurrency(p.amount) }}
+          </option>
+        </select>
+      </div>
+
+      <div class="space-y-1.5">
+        <label class="block text-xs font-medium text-slate-300">Pilih Metode Baru:</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button v-for="m in [
+            { key: 'cash', label: 'Cash (Tunai)' },
+            { key: 'qris', label: 'QRIS' },
+            { key: 'transfer', label: 'Transfer' },
+          ]" :key="m.key"
+            type="button"
+            @click="selectedPaymentMethod = m.key as any"
+            class="py-2.5 px-2 rounded-xl text-xs font-bold transition-all text-center flex flex-col items-center justify-center gap-1"
+            :style="selectedPaymentMethod === m.key
+              ? 'background:rgba(245,158,11,.2); border:1.5px solid #f59e0b; color:#fbbf24;'
+              : 'background:#12121a; border:1px solid #2a2a3a; color:#94a3b8;'">
+            <span>{{ m.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex gap-2 justify-end pt-2">
+        <button type="button" @click="showEditPaymentModal = false"
+          class="px-4 py-2 rounded-xl text-xs font-medium"
+          style="background:#12121a; border:1px solid #2a2a3a; color:#94a3b8;">
+          Batal
+        </button>
+        <button type="submit" :disabled="paymentMethodForm.processing"
+          class="px-5 py-2 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 disabled:opacity-50"
+          style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+          Simpan Perubahan
+        </button>
+      </div>
+    </form>
   </GamingModal>
 
   <!-- Export Modal -->

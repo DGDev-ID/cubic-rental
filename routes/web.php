@@ -57,6 +57,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/rentals/{rental}/resume-time', [RentalController::class, 'resumeWithTime'])->name('rentals.resume-time');
     Route::get('/rentals/{rental}/payment', [RentalController::class, 'payment'])->name('rentals.payment');
     Route::post('/rentals/{rental}/pay', [RentalController::class, 'pay'])->name('rentals.pay');
+    Route::patch('/rentals/{rental}/payment-method', [RentalController::class, 'updatePaymentMethod'])->name('rentals.update-payment-method');
     Route::get('/rentals/{rental}/receipt', [RentalController::class, 'receipt'])->name('rentals.receipt');
 
     // Members
@@ -82,6 +83,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/fnb-orders/{fnbOrder}', [FnbOrderController::class, 'show'])->name('fnb-orders.show');
     Route::get('/fnb-orders/{fnbOrder}/receipt', [FnbOrderController::class, 'receipt'])->name('fnb-orders.receipt');
     Route::patch('/fnb-orders/{fnbOrder}/notes', [FnbOrderController::class, 'updateNotes'])->name('fnb-orders.update-notes');
+    Route::patch('/fnb-orders/{fnbOrder}/payment-method', [FnbOrderController::class, 'updatePaymentMethod'])->name('fnb-orders.update-payment-method');
     Route::post('/fnb-orders/{fnbOrder}/pay', [FnbOrderController::class, 'pay'])->name('fnb-orders.pay');
     Route::delete('/fnb-orders/{fnbOrder}', [FnbOrderController::class, 'destroy'])->name('fnb-orders.destroy');
 
