@@ -70,15 +70,20 @@ const liveRemaining = computed(() => {
 // Hitung estimasi harga rental yang sedang berjalan (tidak boleh Rp 0)
 const currentRentalAmount = computed(() => {
   const rate = Number(props.rental.console?.price_per_hour || 0)
-  // Jika rental sudah selesai dan ada nilai di database, gunakan itu
-  if (props.rental.ended_at) {
-    if (Number(props.rental.rental_amount) > 0) return Number(props.rental.rental_amount)
+  if (props.rental.rental_type === 'member' || (props.rental as any).member_id) {
+    return 0
+  }
+  // Jika rental sudah ada nilai rental_amount di database (> 0), gunakan itu
+  if (Number(props.rental.rental_amount) > 0) {
+    return Number(props.rental.rental_amount)
   }
 
   // Waktu Tetap (Durasi)
   if (props.rental.scheduled_end_at) {
     const schedMin = Math.round((new Date(props.rental.scheduled_end_at).getTime() - new Date(props.rental.started_at).getTime()) / 60000)
-    return Math.round(((rate / 60) * schedMin) / 1000) * 1000
+    const extMin = (props.rental.extensions || []).reduce((acc, curr) => acc + (Number(curr.added_minutes) || 0), 0)
+    const baseMin = Math.max(0, schedMin - extMin)
+    return Math.round(((rate / 60) * baseMin) / 1000) * 1000
   }
 
   // Open Time: minimal 60 menit, dibulatkan per kelipatan 10 menit

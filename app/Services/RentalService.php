@@ -51,10 +51,9 @@ class RentalService
             $customerName = !empty($data['customer_name']) ? trim($data['customer_name']) : $member->name;
             $initialRentalAmount = 0;
         } else {
-            // Non-member: bayar di awal jika pay_upfront
-            $isPayUpfront = !empty($data['pay_upfront']) && $durationHours;
-            if ($isPayUpfront) {
-                $initialRentalAmount = round(($console->price_per_hour * $durationHours) / 1000) * 1000;
+            // Non-member: harga dasar sewa durasi tetap sudah pasti di awal
+            if ($durationHours) {
+                $initialRentalAmount = (float) (round(($console->price_per_hour * $durationHours) / 1000) * 1000);
             }
         }
 
@@ -142,9 +141,20 @@ class RentalService
         $rental->scheduled_end_at = Carbon::now()->addMinutes($addedMinutes);
         $rental->ended_at = null;
 
-        $paid = (float) $rental->payments()->sum('amount');
-        $rental->extra_amount = (float) bcadd((string)$rental->extra_amount, (string)$additionalPrice, 2);
-        $rental->total_amount = (float) bcadd(bcadd((string)$rental->rental_amount, (string)$rental->fnb_amount, 2), (string)$rental->extra_amount, 2);
+        // Pastikan rental_amount tetap mencerminkan base fee jika sebelumnya masih 0
+        if ($rental->rental_amount <= 0 && !$rental->member_id) {
+            if ($rental->rental_type === 'duration') {
+                $totalExtMinutes = (int) $rental->extensions()->where('id', '!=', $extension->id)->sum('added_minutes');
+                $totalSchedMinutes = $rental->started_at && $rental->scheduled_end_at ? $rental->started_at->diffInMinutes($rental->scheduled_end_at) : 0;
+                $baseMin = max(0, $totalSchedMinutes - $totalExtMinutes - $addedMinutes);
+                if ($baseMin > 0) {
+                    $rental->rental_amount = round((($rental->console->price_per_hour / 60) * $baseMin) / 1000) * 1000;
+                }
+            }
+        }
+
+        $rental->extra_amount = (float) $rental->extensions()->sum('additional_price');
+        $rental->total_amount = (float) $rental->rental_amount + (float) $rental->fnb_amount + (float) $rental->extra_amount;
         $rental->status = 'running';
         $rental->save();
 
@@ -167,8 +177,8 @@ class RentalService
             $rental->scheduled_end_at = $baseTime->addMinutes($data['added_minutes']);
         }
 
-        $rental->extra_amount = bcadd($rental->extra_amount, $data['additional_price'], 2);
-        $rental->total_amount = bcadd(bcadd($rental->rental_amount, $rental->fnb_amount, 2), $rental->extra_amount, 2);
+        $rental->extra_amount = (float) $rental->extensions()->sum('additional_price');
+        $rental->total_amount = (float) $rental->rental_amount + (float) $rental->fnb_amount + (float) $rental->extra_amount;
         $rental->save();
 
         return $extension;
@@ -177,6 +187,7 @@ class RentalService
     public function syncFnbAndTotals(Rental $rental): void
     {
         $rental->fnb_amount = (float) $rental->fnbItems()->sum('subtotal');
+        $rental->extra_amount = (float) $rental->extensions()->sum('additional_price');
         $rental->total_amount = (float) $rental->rental_amount + (float) $rental->fnb_amount + (float) $rental->extra_amount;
 
         if ($rental->ended_at) {
@@ -247,14 +258,6 @@ class RentalService
         $endTime = Carbon::now();
         $minutes = $rental->started_at->diffInMinutes($endTime);
 
-        if ($rental->scheduled_end_at) {
-            // Fixed duration booking — charge based on scheduled duration
-            $billedMinutes = $rental->started_at->diffInMinutes($rental->scheduled_end_at);
-        } else {
-            // Open time — round up to nearest 10-min block, minimum 60 min
-            $billedMinutes = (int)(ceil(max($minutes, 60) / 10) * 10);
-        }
-
         // === MEMBER LOGIC ===
         if ($rental->member_id) {
             $member = Member::find($rental->member_id);
@@ -270,22 +273,35 @@ class RentalService
             // Rental amount untuk member SELALU Rp 0 (overtime tidak dikenakan biaya)
             $rentalAmount = 0;
             $rental->rental_amount = 0;
-            $rental->total_amount  = $rental->fnb_amount + $rental->extra_amount;
+            $rental->extra_amount  = (float) $rental->extensions()->sum('additional_price');
+            $rental->total_amount  = (float) $rental->fnb_amount + (float) $rental->extra_amount;
         } else {
             // Normal (non-member) rental
-            $rentalAmount = round((($rental->console->price_per_hour / 60) * $billedMinutes) / 1000) * 1000;
+            if ($rental->rental_type === 'duration') {
+                if ($rental->rental_amount > 0) {
+                    $rentalAmount = (float) $rental->rental_amount;
+                } else {
+                    $totalExtensionMinutes = (int) $rental->extensions()->sum('added_minutes');
+                    $totalScheduledMinutes = $rental->scheduled_end_at ? $rental->started_at->diffInMinutes($rental->scheduled_end_at) : 0;
+                    $baseMinutes = max(0, $totalScheduledMinutes - $totalExtensionMinutes);
+                    $rentalAmount = round((($rental->console->price_per_hour / 60) * $baseMinutes) / 1000) * 1000;
+                }
+            } else {
+                // Open time — round up to nearest 10-min block, minimum 60 min
+                $billedMinutes = (int)(ceil(max($minutes, 60) / 10) * 10);
+                $rentalAmount = round((($rental->console->price_per_hour / 60) * $billedMinutes) / 1000) * 1000;
+            }
+
             $rental->rental_amount = $rentalAmount;
-            $rental->total_amount  = $rentalAmount + $rental->fnb_amount + $rental->extra_amount;
+            $rental->extra_amount  = (float) $rental->extensions()->sum('additional_price');
+            $rental->total_amount  = $rentalAmount + (float) $rental->fnb_amount + (float) $rental->extra_amount;
         }
 
         $paidAmount = (float) $rental->payments()->sum('amount');
         $rental->paid_amount = $paidAmount;
         $rental->ended_at    = $endTime;
 
-        if ($paidAmount >= $rental->total_amount && $paidAmount > 0) {
-            $rental->status = 'paid';
-        } elseif ($rental->total_amount == 0) {
-            // Member dengan tidak ada sisa bayar (FnB=0, no overtime)
+        if ($paidAmount >= $rental->total_amount && ($paidAmount > 0 || $rental->total_amount == 0)) {
             $rental->status = 'paid';
         } elseif ($paidAmount > 0) {
             $rental->status = 'half_paid';
@@ -369,23 +385,24 @@ class RentalService
                 }
 
                 // Calculate current rental amount
-                $currentRentalAmount = $rental->rental_amount;
+                $currentRentalAmount = (float) $rental->rental_amount;
                 if ($rental->member_id) {
                     $currentRentalAmount = 0;
-                } elseif ($rental->rental_type === 'open_time' || $rental->rental_type === 'duration') {
-                    if ($rental->scheduled_end_at) {
-                        // Fixed duration booking — price based on the scheduled duration
-                        $scheduledMinutes = $rental->started_at->diffInMinutes($rental->scheduled_end_at);
-                        $currentRentalAmount = round((($rental->console->price_per_hour / 60) * $scheduledMinutes) / 1000) * 1000;
-                    } else {
-                        // Pure open time — round up to nearest 10-min block (minimum 60 min)
-                        $billedMinutes = (int)(ceil(max($durationMinutes, 60) / 10) * 10);
-                        $currentRentalAmount = round((($rental->console->price_per_hour / 60) * $billedMinutes) / 1000) * 1000;
+                } elseif ($rental->rental_type === 'duration') {
+                    if ($currentRentalAmount <= 0) {
+                        $totalExtensionMinutes = (int) $rental->extensions->sum('added_minutes');
+                        $totalScheduledMinutes = $rental->scheduled_end_at ? $rental->started_at->diffInMinutes($rental->scheduled_end_at) : 0;
+                        $baseMinutes = max(0, $totalScheduledMinutes - $totalExtensionMinutes);
+                        $currentRentalAmount = round((($rental->console->price_per_hour / 60) * $baseMinutes) / 1000) * 1000;
                     }
+                } elseif ($rental->rental_type === 'open_time') {
+                    // Pure open time — round up to nearest 10-min block (minimum 60 min)
+                    $billedMinutes = (int)(ceil(max($durationMinutes, 60) / 10) * 10);
+                    $currentRentalAmount = round((($rental->console->price_per_hour / 60) * $billedMinutes) / 1000) * 1000;
                 }
 
                 $paid = (float) $rental->payments->sum('amount');
-                $currentTotal = $currentRentalAmount + $rental->fnb_amount + $rental->extra_amount;
+                $currentTotal = $currentRentalAmount + (float) $rental->fnb_amount + (float) $rental->extra_amount;
                 $isPaid = $paid >= $currentTotal && ($paid > 0 || $rental->member_id);
 
                 return array_merge($rental->toArray(), [

@@ -121,7 +121,7 @@ function methodLabel(m: string) {
       <table class="receipt-table">
         <tr><td>Rental</td><td class="text-right">{{ formatCurrency(rental.rental_amount) }}</td></tr>
         <tr><td>FNB</td><td class="text-right">{{ formatCurrency(rental.fnb_amount) }}</td></tr>
-        <tr v-if="rental.extra_amount"><td>Overtime</td><td class="text-right">{{ formatCurrency(rental.extra_amount) }}</td></tr>
+        <tr v-if="rental.extra_amount"><td>Tambahan Waktu</td><td class="text-right">{{ formatCurrency(rental.extra_amount) }}</td></tr>
         <tr class="receipt-total-row"><td><strong>TOTAL</strong></td><td class="text-right"><strong>{{ formatCurrency(rental.total_amount) }}</strong></td></tr>
       </table>
 

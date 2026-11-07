@@ -63,15 +63,20 @@ class RentalController extends Controller
         $now = \Carbon\Carbon::now();
         $durationMinutes = $rental->started_at->diffInMinutes($now);
 
-        if ($rental->scheduled_end_at) {
+        if ($rental->member_id) {
+            $displayRentalAmount = 0;
+        } elseif ($rental->rental_amount > 0) {
+            $displayRentalAmount = (float) $rental->rental_amount;
+        } elseif ($rental->scheduled_end_at) {
+            $totalExtensionMinutes = (int) $rental->extensions->sum('added_minutes');
             $scheduledMinutes = $rental->started_at->diffInMinutes($rental->scheduled_end_at);
-            $estimatedRentalAmount = round((($rental->console->price_per_hour / 60) * $scheduledMinutes) / 1000) * 1000;
+            $baseMinutes = max(0, $scheduledMinutes - $totalExtensionMinutes);
+            $displayRentalAmount = round((($rental->console->price_per_hour / 60) * $baseMinutes) / 1000) * 1000;
         } else {
             $billedMinutes = (int)(ceil(max($durationMinutes, 60) / 10) * 10);
-            $estimatedRentalAmount = round((($rental->console->price_per_hour / 60) * $billedMinutes) / 1000) * 1000;
+            $displayRentalAmount = round((($rental->console->price_per_hour / 60) * $billedMinutes) / 1000) * 1000;
         }
 
-        $displayRentalAmount = $rental->rental_amount > 0 ? (float) $rental->rental_amount : (float) $estimatedRentalAmount;
         $displayTotalAmount = $displayRentalAmount + (float) $rental->fnb_amount + (float) $rental->extra_amount;
         $paidAmount = (float) $rental->payments->sum('amount');
 
