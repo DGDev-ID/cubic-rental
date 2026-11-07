@@ -101,14 +101,25 @@ class RentalController extends Controller
         return back()->with('success', 'FNB berhasil ditambahkan.');
     }
 
+    public function updateFnb(Request $request, Rental $rental, RentalFnbItem $fnbItem): RedirectResponse
+    {
+        $request->validate([
+            'fnb_item_id'               => 'required|exists:fnb_items,id',
+            'qty'                       => 'required|integer|min:1',
+            'addons'                    => 'nullable|array',
+            'addons.*.addon_id'         => 'nullable|integer',
+            'addons.*.name'             => 'required|string',
+            'addons.*.price'            => 'required|numeric|min:0',
+        ]);
+
+        $this->rentalService->updateFnbItem($rental, $fnbItem, $request->all());
+        return back()->with('success', 'Pesanan FNB berhasil diperbarui.');
+    }
+
     public function removeFnb(Rental $rental, RentalFnbItem $fnbItem): RedirectResponse
     {
-        abort_if($fnbItem->rental_id !== $rental->id, 403);
-        $rental->fnb_amount = max(0, $rental->fnb_amount - $fnbItem->subtotal);
-        $rental->total_amount = $rental->rental_amount + $rental->fnb_amount + $rental->extra_amount;
-        $rental->save();
-        $fnbItem->delete();
-        return back()->with('success', 'Item FNB dihapus.');
+        $this->rentalService->removeFnbItem($rental, $fnbItem);
+        return back()->with('success', 'Item FNB berhasil dihapus.');
     }
 
     public function finish(Rental $rental): RedirectResponse

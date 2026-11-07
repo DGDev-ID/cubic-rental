@@ -174,31 +174,72 @@ class RentalService
         return $extension;
     }
 
+    public function syncFnbAndTotals(Rental $rental): void
+    {
+        $rental->fnb_amount = (float) $rental->fnbItems()->sum('subtotal');
+        $rental->total_amount = (float) $rental->rental_amount + (float) $rental->fnb_amount + (float) $rental->extra_amount;
+
+        if ($rental->ended_at) {
+            $paidAmount = (float) $rental->payments()->sum('amount');
+            $rental->paid_amount = $paidAmount;
+            if ($paidAmount >= $rental->total_amount && ($paidAmount > 0 || $rental->total_amount == 0)) {
+                $rental->status = 'paid';
+            } elseif ($paidAmount > 0) {
+                $rental->status = 'half_paid';
+            } else {
+                $rental->status = 'finished';
+            }
+        }
+
+        $rental->save();
+    }
+
     public function addFnb(Rental $rental, array $items): void
     {
-        $totalFnb = 0;
-
         foreach ($items as $item) {
             $fnbItem  = FnbItem::findOrFail($item['fnb_item_id']);
             $addonsPrice = collect($item['addons'] ?? [])->sum('price');
             $subtotal    = ($fnbItem->price + $addonsPrice) * $item['qty'];
 
             RentalFnbItem::create([
-                'rental_id'   => $rental->id,
-                'fnb_item_id' => $fnbItem->id,
-                'qty'         => $item['qty'],
-                'unit_price'  => $fnbItem->price,
-                'subtotal'    => $subtotal,
-                'addons'      => $item['addons'] ?? null,
+                'rental_id'    => $rental->id,
+                'fnb_item_id'  => $fnbItem->id,
+                'qty'          => $item['qty'],
+                'unit_price'   => $fnbItem->price,
+                'subtotal'     => $subtotal,
+                'addons'       => $item['addons'] ?? null,
                 'addons_price' => $addonsPrice * $item['qty'],
             ]);
-
-            $totalFnb += $subtotal;
         }
 
-        $rental->fnb_amount = bcadd($rental->fnb_amount, $totalFnb, 2);
-        $rental->total_amount = bcadd(bcadd($rental->rental_amount, $rental->fnb_amount, 2), $rental->extra_amount, 2);
-        $rental->save();
+        $this->syncFnbAndTotals($rental);
+    }
+
+    public function updateFnbItem(Rental $rental, RentalFnbItem $fnbItem, array $data): void
+    {
+        abort_if($fnbItem->rental_id !== $rental->id, 403);
+
+        $item = FnbItem::findOrFail($data['fnb_item_id']);
+        $addonsPrice = collect($data['addons'] ?? [])->sum('price');
+        $subtotal = ($item->price + $addonsPrice) * $data['qty'];
+
+        $fnbItem->update([
+            'fnb_item_id'  => $item->id,
+            'qty'          => $data['qty'],
+            'unit_price'   => $item->price,
+            'addons'       => $data['addons'] ?? null,
+            'addons_price' => $addonsPrice * $data['qty'],
+            'subtotal'     => $subtotal,
+        ]);
+
+        $this->syncFnbAndTotals($rental);
+    }
+
+    public function removeFnbItem(Rental $rental, RentalFnbItem $fnbItem): void
+    {
+        abort_if($fnbItem->rental_id !== $rental->id, 403);
+        $fnbItem->delete();
+        $this->syncFnbAndTotals($rental);
     }
 
     public function finish(Rental $rental): Rental

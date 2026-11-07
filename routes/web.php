@@ -50,6 +50,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/rentals/{rental}', [RentalController::class, 'destroy'])->name('rentals.destroy');
     Route::post('/rentals/{rental}/add-time', [RentalController::class, 'addTime'])->name('rentals.add-time');
     Route::post('/rentals/{rental}/add-fnb', [RentalController::class, 'addFnb'])->name('rentals.add-fnb');
+    Route::patch('/rentals/{rental}/fnb/{fnbItem}', [RentalController::class, 'updateFnb'])->name('rentals.update-fnb');
     Route::delete('/rentals/{rental}/fnb/{fnbItem}', [RentalController::class, 'removeFnb'])->name('rentals.remove-fnb');
     Route::post('/rentals/{rental}/finish', [RentalController::class, 'finish'])->name('rentals.finish');
     Route::post('/rentals/{rental}/switch-console', [RentalController::class, 'switchConsole'])->name('rentals.switch-console');

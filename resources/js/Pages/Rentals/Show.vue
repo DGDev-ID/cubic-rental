@@ -5,7 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 import GamingModal from '@/Components/GamingModal.vue'
 import {
   Clock, UtensilsCrossed, CheckCircle, Plus, Trash2, Wallet,
-  ArrowLeftRight, StickyNote, ArrowLeft, Receipt
+  ArrowLeftRight, StickyNote, ArrowLeft, Receipt, Pencil
 } from 'lucide-vue-next'
 
 interface FnbAddon { id: number; name: string; price: number }
@@ -43,6 +43,13 @@ onUnmounted(() => clearInterval(timer))
 
 // Rental dianggap selesai jika ended_at sudah tercatat atau status finished
 const isFinishedOrPaid = computed(() => !!props.rental.ended_at || props.rental.status === 'finished')
+
+// FNB bisa ditambah / diedit / dihapus jika rental belum dibatalkan dan belum lunas tanpa sisa
+const canManageFnb = computed(() => {
+  if (props.rental.status === 'cancelled') return false
+  if (props.rental.status === 'paid' && remainingPayment.value <= 0) return false
+  return true
+})
 
 const liveDuration = computed(() => {
   const endTime = props.rental.ended_at
@@ -141,9 +148,97 @@ function doFinish() {
   })
 }
 
-// Remove FNB item
-function removeFnbItem(fnbItemId: number) {
-  router.delete(route('rentals.remove-fnb', { rental: props.rental.id, fnbItem: fnbItemId }))
+// Edit FNB item
+interface EditingFnb {
+  id: number
+  fnb_item_id: number
+  qty: number
+  addon_ids: number[]
+}
+const showEditFnb = ref(false)
+const editingFnb = ref<EditingFnb | null>(null)
+const submittingEditFnb = ref(false)
+
+function openEditFnb(item: FnbOrderItem) {
+  const matchedAddonIds: number[] = []
+  if (item.addons && Array.isArray(item.addons)) {
+    item.addons.forEach(ad => {
+      const found = props.fnb_addons.find(a => (ad as any).addon_id === a.id || a.name === ad.name)
+      if (found && !matchedAddonIds.includes(found.id)) {
+        matchedAddonIds.push(found.id)
+      }
+    })
+  }
+
+  editingFnb.value = {
+    id: item.id,
+    fnb_item_id: item.fnb_item_id,
+    qty: item.qty,
+    addon_ids: matchedAddonIds,
+  }
+  showEditFnb.value = true
+}
+
+const editingSubtotal = computed(() => {
+  if (!editingFnb.value || !editingFnb.value.fnb_item_id) return 0
+  const selectedItem = props.fnb_items.find(i => i.id === editingFnb.value?.fnb_item_id)
+  if (!selectedItem) return 0
+  const addonsTotal = editingFnb.value.addon_ids.reduce((sum, id) => {
+    const ad = props.fnb_addons.find(a => a.id === id)
+    return sum + (ad ? Number(ad.price) : 0)
+  }, 0)
+  return (Number(selectedItem.price) + addonsTotal) * (editingFnb.value.qty || 1)
+})
+
+function submitEditFnb() {
+  if (!editingFnb.value || !editingFnb.value.fnb_item_id) return
+  submittingEditFnb.value = true
+
+  const selectedAddons = editingFnb.value.addon_ids.map(id => {
+    const ad = props.fnb_addons.find(a => a.id === id)!
+    return { addon_id: id, name: ad.name, price: Number(ad.price) }
+  })
+
+  router.patch(route('rentals.update-fnb', { rental: props.rental.id, fnbItem: editingFnb.value.id }), {
+    fnb_item_id: editingFnb.value.fnb_item_id,
+    qty: editingFnb.value.qty,
+    addons: selectedAddons,
+  }, {
+    preserveScroll: true,
+    onSuccess: () => {
+      showEditFnb.value = false
+      editingFnb.value = null
+    },
+    onFinish: () => {
+      submittingEditFnb.value = false
+    }
+  })
+}
+
+// Remove FNB item with confirmation
+const showDeleteFnbModal = ref(false)
+const itemToDelete = ref<FnbOrderItem | null>(null)
+function confirmRemoveFnb(item: FnbOrderItem) {
+  itemToDelete.value = item
+  showDeleteFnbModal.value = true
+}
+function submitRemoveFnb() {
+  if (!itemToDelete.value) return
+  router.delete(route('rentals.remove-fnb', { rental: props.rental.id, fnbItem: itemToDelete.value.id }), {
+    preserveScroll: true,
+    onSuccess: () => {
+      showDeleteFnbModal.value = false
+      itemToDelete.value = null
+      if (showEditFnb.value) showEditFnb.value = false
+    }
+  })
+}
+function showDeleteFnbFromEdit() {
+  if (!editingFnb.value) return
+  const currentItem = props.rental.fnb_items.find(i => i.id === editingFnb.value?.id)
+  if (currentItem) {
+    confirmRemoveFnb(currentItem)
+  }
 }
 
 // Pindah Ruangan (Switch Console)
@@ -203,6 +298,12 @@ function submitNotes() {
             style="background:rgba(234,179,8,.2); border:1px solid rgba(234,179,8,.4);"
             title="Catatan Transaksi">
             <StickyNote :size="14" /> Catatan
+          </button>
+          <button v-if="canManageFnb" @click="showAddFnb = true"
+            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-white transition-all flex items-center gap-1.5"
+            style="background:rgba(34,197,94,.2); border:1px solid rgba(34,197,94,.4);"
+            title="Tambah Pesanan FNB">
+            <UtensilsCrossed :size="14" /> + FNB
           </button>
           <a :href="route('rentals.receipt', rental.id)" target="_blank"
             class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-emerald-400 transition-all flex items-center gap-1.5"
@@ -297,8 +398,8 @@ function submitNotes() {
         <div class="rounded-xl p-5" style="background:#1a1a26; border:1px solid #2a2a3a;">
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-semibold text-white">Pesanan FNB</h3>
-            <button v-if="!isFinishedOrPaid" @click="showAddFnb = true" class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1">
-              <Plus :size="12" /> Tambah FNB
+            <button v-if="canManageFnb" @click="showAddFnb = true" class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-semibold transition-colors">
+              <Plus :size="13" /> Tambah FNB
             </button>
           </div>
           <div v-if="rental.fnb_items.length === 0" class="text-xs py-4 text-center" style="color:#64748b;">Belum ada pesanan FNB</div>
@@ -314,12 +415,20 @@ function submitNotes() {
               </div>
               <div class="flex items-center gap-3">
                 <p class="text-sm font-bold" style="color:#a78bfa;">{{ formatCurrency(fi.subtotal) }}</p>
-                <button v-if="!isFinishedOrPaid" type="button" @click="removeFnbItem(fi.id)"
-                  class="p-1.5 rounded-lg text-red-400 hover:text-red-300 transition-colors"
-                  style="background:rgba(239,68,68,.1);"
-                  title="Hapus Item">
-                  <Trash2 :size="13" />
-                </button>
+                <div v-if="canManageFnb" class="flex items-center gap-1.5">
+                  <button type="button" @click="openEditFnb(fi)"
+                    class="p-1.5 rounded-lg text-blue-400 hover:text-blue-300 transition-colors"
+                    style="background:rgba(59,130,246,.15); border:1px solid rgba(59,130,246,.3);"
+                    title="Edit Item FNB (Ubah Qty / Menu / Add-on)">
+                    <Pencil :size="13" />
+                  </button>
+                  <button type="button" @click="confirmRemoveFnb(fi)"
+                    class="p-1.5 rounded-lg text-red-400 hover:text-red-300 transition-colors"
+                    style="background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.3);"
+                    title="Hapus Item">
+                    <Trash2 :size="13" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -542,6 +651,116 @@ function submitNotes() {
         <button type="button" @click="submitAddFnb" :disabled="submittingFnb"
           class="flex-1 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60"
           style="background:linear-gradient(135deg,#22c55e,#16a34a);">Tambah FNB</button>
+      </div>
+    </GamingModal>
+
+    <!-- Edit FNB Modal -->
+    <GamingModal :show="showEditFnb" title="Edit Pesanan FNB" max-width="32rem" @close="showEditFnb = false">
+      <div v-if="editingFnb" class="space-y-4">
+        <!-- Select Item -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-medium text-slate-300">Pilih Menu F&B:</label>
+          <select v-model.number="editingFnb.fnb_item_id"
+            class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+            style="background:#12121a; border:1px solid #2a2a3a;">
+            <option v-for="fi in fnb_items" :key="fi.id" :value="fi.id">
+              {{ fi.name }} – {{ formatCurrency(fi.price) }} ({{ fi.category }})
+            </option>
+          </select>
+        </div>
+
+        <!-- Quantity with counter buttons -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-medium text-slate-300">Jumlah (Qty):</label>
+          <div class="flex items-center gap-2">
+            <button type="button" @click="editingFnb.qty = Math.max(1, editingFnb.qty - 1)"
+              class="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold transition-all text-white hover:bg-slate-700"
+              style="background:#12121a; border:1px solid #2a2a3a;">
+              -
+            </button>
+            <input v-model.number="editingFnb.qty" type="number" min="1"
+              class="w-20 h-10 px-3 py-2 rounded-xl text-sm text-white outline-none text-center font-bold"
+              style="background:#12121a; border:1px solid #2a2a3a;" />
+            <button type="button" @click="editingFnb.qty = editingFnb.qty + 1"
+              class="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold transition-all text-white hover:bg-slate-700"
+              style="background:#12121a; border:1px solid #2a2a3a;">
+              +
+            </button>
+            <span class="text-xs text-slate-400 ml-2">
+              (Kurangi qty jika sebagian item dibayar meja lain)
+            </span>
+          </div>
+        </div>
+
+        <!-- Addons checkboxes/pills -->
+        <div v-if="fnb_addons.length" class="space-y-1.5">
+          <label class="block text-xs font-medium text-slate-300">Pilihan Add-on / Topping:</label>
+          <div class="flex flex-wrap gap-1.5">
+            <label v-for="ad in fnb_addons" :key="ad.id"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl cursor-pointer text-xs font-medium transition-all"
+              :style="editingFnb.addon_ids.includes(ad.id)
+                ? 'background:rgba(34,197,94,.2); border:1px solid rgba(34,197,94,.5); color:#22c55e;'
+                : 'background:#12121a; border:1px solid #2a2a3a; color:#94a3b8;'">
+              <input type="checkbox" :value="ad.id" v-model="editingFnb.addon_ids" class="hidden" />
+              <span>{{ ad.name }}</span>
+              <span class="text-[11px] opacity-80">+{{ formatCurrency(ad.price) }}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Subtotal Preview -->
+        <div class="p-3 rounded-xl flex items-center justify-between" style="background:#12121a; border:1px solid #2a2a3a;">
+          <span class="text-xs text-slate-400">Subtotal Item:</span>
+          <span class="text-base font-bold text-emerald-400">{{ formatCurrency(editingSubtotal) }}</span>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-between gap-2 pt-2 border-t border-[#2a2a3a]">
+          <button type="button" @click="showDeleteFnbFromEdit"
+            class="px-3.5 py-2 rounded-xl text-xs font-medium text-red-400 flex items-center gap-1 transition-all hover:bg-red-500/20"
+            style="background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3);"
+            title="Hapus item ini dari tagihan">
+            <Trash2 :size="13" /> Hapus Item
+          </button>
+          <div class="flex items-center gap-2">
+            <button type="button" @click="showEditFnb = false"
+              class="px-4 py-2 rounded-xl text-xs font-medium"
+              style="background:#12121a; border:1px solid #2a2a3a; color:#94a3b8;">
+              Batal
+            </button>
+            <button type="button" @click="submitEditFnb" :disabled="submittingEditFnb"
+              class="px-5 py-2 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 disabled:opacity-60"
+              style="background:linear-gradient(135deg,#3b82f6,#2563eb);">
+              Simpan Perubahan
+            </button>
+          </div>
+        </div>
+      </div>
+    </GamingModal>
+
+    <!-- Delete FNB Item Modal -->
+    <GamingModal :show="showDeleteFnbModal" title="Hapus Item FNB?" @close="showDeleteFnbModal = false">
+      <div class="space-y-4">
+        <p class="text-sm text-slate-300">
+          Apakah Anda yakin ingin menghapus item
+          <strong class="text-white">{{ itemToDelete?.fnb_item?.name || 'Item F&B' }} (x{{ itemToDelete?.qty }})</strong>
+          dari tagihan rental ini?
+        </p>
+        <p class="text-xs text-slate-400">
+          Total tagihan F&B akan otomatis berkurang dan sisa tagihan kasir akan disesuaikan.
+        </p>
+        <div class="flex gap-3 pt-2">
+          <button type="button" @click="showDeleteFnbModal = false"
+            class="flex-1 py-2.5 rounded-xl text-sm"
+            style="background:#12121a; border:1px solid #2a2a3a; color:#94a3b8;">
+            Batal
+          </button>
+          <button type="button" @click="submitRemoveFnb"
+            class="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-1.5"
+            style="background:linear-gradient(135deg,#ef4444,#dc2626);">
+            <Trash2 :size="15" /> Ya, Hapus
+          </button>
+        </div>
       </div>
     </GamingModal>
 
