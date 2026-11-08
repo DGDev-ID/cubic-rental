@@ -11,7 +11,7 @@ class AddTimeRequest extends FormRequest
     {
         return [
             'added_minutes'    => 'required|integer|min:1',
-            'additional_price' => 'required|numeric|min:0',
+            'additional_price' => 'nullable|numeric|min:0',
             'notes'            => 'nullable|string|max:300',
         ];
     }

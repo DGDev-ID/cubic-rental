@@ -163,10 +163,23 @@ class RentalService
 
     public function addTime(Rental $rental, array $data): RentalExtension
     {
+        $addedMinutes = (int) $data['added_minutes'];
+        $rate = $rental->console ? (float) $rental->console->price_per_hour : 0;
+        $calculatedPrice = (float) (round((($rate / 60) * $addedMinutes) / 1000) * 1000);
+
+        // Jika additional_price dikirim > 0 gunakan nilai tersebut, jika tidak / 0 hitung otomatis dari tarif console
+        if (isset($data['additional_price']) && is_numeric($data['additional_price']) && (float) $data['additional_price'] > 0) {
+            $additionalPrice = (float) $data['additional_price'];
+        } elseif ($rental->member_id) {
+            $additionalPrice = 0;
+        } else {
+            $additionalPrice = $calculatedPrice;
+        }
+
         $extension = RentalExtension::create([
             'rental_id'        => $rental->id,
-            'added_minutes'    => $data['added_minutes'],
-            'additional_price' => $data['additional_price'],
+            'added_minutes'    => $addedMinutes,
+            'additional_price' => $additionalPrice,
             'notes'            => $data['notes'] ?? null,
         ]);
 
@@ -174,7 +187,7 @@ class RentalService
             $currentEnd = Carbon::parse($rental->scheduled_end_at);
             // If already expired, start from now
             $baseTime = $currentEnd->isPast() ? Carbon::now() : $currentEnd;
-            $rental->scheduled_end_at = $baseTime->addMinutes($data['added_minutes']);
+            $rental->scheduled_end_at = $baseTime->addMinutes($addedMinutes);
         }
 
         $rental->extra_amount = (float) $rental->extensions()->sum('additional_price');

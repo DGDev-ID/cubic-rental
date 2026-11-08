@@ -111,6 +111,27 @@ function formatTime(d: string) {
 // Add Time form
 const showAddTime = ref(false)
 const addTimeForm = useForm({ added_minutes: 60, additional_price: 0, notes: '' })
+
+function openAddTimeModal() {
+  const rate = Number(props.rental.console?.price_per_hour || 0)
+  addTimeForm.added_minutes = 60
+  addTimeForm.additional_price = Math.round(((rate / 60) * 60) / 1000) * 1000
+  addTimeForm.notes = ''
+  showAddTime.value = true
+}
+
+function setAddTimeMinutes(d: number) {
+  addTimeForm.added_minutes = d
+  const rate = Number(props.rental.console?.price_per_hour || 0)
+  addTimeForm.additional_price = Math.round(((rate / 60) * d) / 1000) * 1000
+}
+
+function onAddTimeMinutesInput() {
+  const rate = Number(props.rental.console?.price_per_hour || 0)
+  const d = Number(addTimeForm.added_minutes) || 0
+  addTimeForm.additional_price = Math.round(((rate / 60) * d) / 1000) * 1000
+}
+
 function submitAddTime() {
   addTimeForm.post(route('rentals.add-time', props.rental.id), {
     onSuccess: () => { showAddTime.value = false; addTimeForm.reset() },
@@ -334,7 +355,7 @@ function submitNotes() {
             title="Catatan Console">
             <StickyNote :size="14" /> Catatan
           </button>
-          <button @click="showAddTime = true"
+          <button @click="openAddTimeModal"
             class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-white transition-all flex items-center gap-1.5"
             style="background:rgba(59,130,246,.2); border:1px solid rgba(59,130,246,.4);">
             <Clock :size="14" /> + Waktu
@@ -580,7 +601,7 @@ function submitNotes() {
           <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Durasi Tambahan (menit)</label>
           <div class="grid grid-cols-4 gap-2 mb-2">
             <button v-for="d in [30,60,90,120]" :key="d" type="button"
-              @click="addTimeForm.added_minutes = d; addTimeForm.additional_price = Math.round(((rental.console.price_per_hour / 60) * d) / 1000) * 1000"
+              @click="setAddTimeMinutes(d)"
               class="py-2 rounded-xl text-xs font-medium transition-all"
               :style="addTimeForm.added_minutes === d
                 ? 'background:rgba(139,92,246,.4); border:1px solid #8b5cf6; color:white;'
@@ -589,16 +610,24 @@ function submitNotes() {
             </button>
           </div>
           <input v-model.number="addTimeForm.added_minutes"
-            @input="addTimeForm.additional_price = Math.round(((rental.console.price_per_hour / 60) * (addTimeForm.added_minutes || 0)) / 1000) * 1000"
+            @input="onAddTimeMinutesInput"
             type="number" min="15"
             class="w-full px-3 py-2 rounded-xl text-white outline-none text-sm"
             style="background:#12121a; border:1px solid #2a2a3a;" />
         </div>
         <div>
-          <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Biaya Tambahan (Rp)</label>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-medium" style="color:#94a3b8;">Biaya Tambahan (Rp)</label>
+            <span class="text-[11px] text-purple-400 font-semibold">
+              Tarif: {{ formatCurrency(rental.console?.price_per_hour || 0) }}/jam
+            </span>
+          </div>
           <input v-model.number="addTimeForm.additional_price" type="number" min="0"
-            class="w-full px-3 py-2 rounded-xl text-white outline-none text-sm"
-            style="background:#12121a; border:1px solid #2a2a3a;" />
+            class="w-full px-3 py-2 rounded-xl text-white outline-none text-sm font-semibold"
+            style="background:#12121a; border:1px solid #2a2a3a; color:#a78bfa;" />
+          <p class="text-[11px] text-slate-400 mt-1">
+            Terisi otomatis sesuai tarif console, dapat disesuaikan jika ada diskon/penyesuaian khusus.
+          </p>
         </div>
         <div>
           <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Catatan</label>
