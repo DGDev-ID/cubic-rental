@@ -64,19 +64,20 @@ const selectedMember = ref<Member | null>(null)
 
 const topUpForm = useForm({
   member_id: null as number | null,
-  package_id: null as number | null,
+  member_package_id: null as number | null,
   payment_method: 'cash',
   employee_id: null as number | null,
   notes: '',
 })
 
 const selectedPackage = computed(() =>
-  props.packages.find(p => p.id === topUpForm.package_id) ?? null
+  props.packages.find(p => p.id === topUpForm.member_package_id) ?? null
 )
 
 function openTopUp(m: Member) {
   selectedMember.value = m
   topUpForm.reset()
+  topUpForm.clearErrors()
   topUpForm.member_id = m.id
   topUpForm.payment_method = 'cash'
   showTopUpModal.value = true
@@ -100,12 +101,22 @@ const showRegisterModal = ref(false)
 const registerForm = useForm({
   name: '',
   phone: '',
-  package_id: null as number | null,
+  member_package_id: null as number | null,
+  employee_id: null as number | null,
+  payment_method: 'cash',
+  notes: '',
 })
 
 const registerSelectedPackage = computed(() =>
-  props.packages.find(p => p.id === registerForm.package_id) ?? null
+  props.packages.find(p => p.id === registerForm.member_package_id) ?? null
 )
+
+function openRegisterModal() {
+  registerForm.reset()
+  registerForm.clearErrors()
+  registerForm.payment_method = 'cash'
+  showRegisterModal.value = true
+}
 
 function submitRegister() {
   registerForm.post(route('members.store'), {
@@ -164,7 +175,7 @@ function typeIcon(t: string) {
     </template>
     <template #header-actions>
       <button
-        @click="showRegisterModal = true"
+        @click="openRegisterModal"
         class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-colors hover:opacity-90"
         style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);">
         <Plus :size="16" /> Daftar Member Baru
@@ -391,9 +402,9 @@ function typeIcon(t: string) {
             <button
               v-for="pkg in packages" :key="pkg.id"
               type="button"
-              @click="topUpForm.package_id = pkg.id"
+              @click="topUpForm.member_package_id = pkg.id"
               class="p-3 rounded-xl text-left transition-all"
-              :style="topUpForm.package_id === pkg.id
+              :style="topUpForm.member_package_id === pkg.id
                 ? 'background:rgba(139,92,246,.25); border:1px solid rgba(139,92,246,.6);'
                 : 'background:#12121a; border:1px solid #2a2a3a;'">
               <div class="flex items-center justify-between mb-1">
@@ -410,7 +421,7 @@ function typeIcon(t: string) {
               <p class="text-sm font-bold mt-1" style="color:#a78bfa;">{{ formatCurrency(pkg.price) }}</p>
             </button>
           </div>
-          <p v-if="topUpForm.errors.package_id" class="text-red-400 text-xs mt-1">{{ topUpForm.errors.package_id }}</p>
+          <p v-if="topUpForm.errors.member_package_id" class="text-red-400 text-xs mt-1">{{ topUpForm.errors.member_package_id }}</p>
         </div>
 
         <!-- Kasir -->
@@ -429,9 +440,9 @@ function typeIcon(t: string) {
         <!-- Metode Pembayaran -->
         <div>
           <label class="block text-xs font-medium mb-2" style="color:#94a3b8;">Metode Pembayaran *</label>
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
-              v-for="m in ['cash', 'qris']" :key="m"
+              v-for="m in ['cash', 'qris', 'transfer', 'debit']" :key="m"
               type="button"
               @click="topUpForm.payment_method = m"
               class="py-2.5 px-3 rounded-xl text-xs font-semibold uppercase transition-all"
@@ -490,7 +501,7 @@ function typeIcon(t: string) {
           <button
             type="button"
             @click="submitTopUp"
-            :disabled="topUpForm.processing || !topUpForm.package_id || !topUpForm.employee_id"
+            :disabled="topUpForm.processing || !topUpForm.member_package_id || !topUpForm.employee_id"
             class="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 hover:opacity-90"
             style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);">
             {{ topUpForm.processing ? 'Memproses...' : 'Konfirmasi Top-Up' }}
@@ -503,7 +514,7 @@ function typeIcon(t: string) {
     <GamingModal
       :show="showRegisterModal"
       title="Daftar Member Baru"
-      maxWidth="32rem"
+      maxWidth="36rem"
       @close="showRegisterModal = false">
 
       <div class="space-y-5">
@@ -520,7 +531,7 @@ function typeIcon(t: string) {
 
         <!-- No. Telp -->
         <div>
-          <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">No. Telepon *</label>
+          <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">No. Telepon (opsional)</label>
           <input
             v-model="registerForm.phone"
             type="tel"
@@ -537,9 +548,9 @@ function typeIcon(t: string) {
             <button
               v-for="pkg in packages" :key="pkg.id"
               type="button"
-              @click="registerForm.package_id = pkg.id"
+              @click="registerForm.member_package_id = pkg.id"
               class="p-3 rounded-xl text-left transition-all"
-              :style="registerForm.package_id === pkg.id
+              :style="registerForm.member_package_id === pkg.id
                 ? 'background:rgba(139,92,246,.25); border:1px solid rgba(139,92,246,.6);'
                 : 'background:#12121a; border:1px solid #2a2a3a;'">
               <div class="flex items-center justify-between mb-1">
@@ -556,7 +567,7 @@ function typeIcon(t: string) {
               <p class="text-sm font-bold mt-1" style="color:#a78bfa;">{{ formatCurrency(pkg.price) }}</p>
             </button>
           </div>
-          <p v-if="registerForm.errors.package_id" class="text-red-400 text-xs mt-1">{{ registerForm.errors.package_id }}</p>
+          <p v-if="registerForm.errors.member_package_id" class="text-red-400 text-xs mt-1">{{ registerForm.errors.member_package_id }}</p>
         </div>
 
         <!-- Console Type Info -->
@@ -572,6 +583,71 @@ function typeIcon(t: string) {
           </div>
         </div>
 
+        <!-- Kasir -->
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Kasir *</label>
+          <select
+            v-model="registerForm.employee_id"
+            class="w-full px-4 py-2.5 rounded-xl text-white outline-none text-sm"
+            style="background:#12121a; border:1px solid #2a2a3a;">
+            <option :value="null">-- Pilih Kasir --</option>
+            <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.name }}</option>
+          </select>
+          <p v-if="registerForm.errors.employee_id" class="text-red-400 text-xs mt-1">{{ registerForm.errors.employee_id }}</p>
+        </div>
+
+        <!-- Metode Pembayaran -->
+        <div>
+          <label class="block text-xs font-medium mb-2" style="color:#94a3b8;">Metode Pembayaran *</label>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <button
+              v-for="m in ['cash', 'qris', 'transfer', 'debit']" :key="m"
+              type="button"
+              @click="registerForm.payment_method = m"
+              class="py-2.5 px-3 rounded-xl text-xs font-semibold uppercase transition-all"
+              :style="registerForm.payment_method === m
+                ? 'background:linear-gradient(135deg,#8b5cf6,#3b82f6); color:white; border:1px solid rgba(139,92,246,.6);'
+                : 'background:#12121a; color:#94a3b8; border:1px solid #2a2a3a;'">
+              {{ m }}
+            </button>
+          </div>
+          <p v-if="registerForm.errors.payment_method" class="text-red-400 text-xs mt-1">{{ registerForm.errors.payment_method }}</p>
+        </div>
+
+        <!-- Catatan -->
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Catatan (opsional)</label>
+          <textarea
+            v-model="registerForm.notes"
+            rows="2"
+            class="w-full px-4 py-2.5 rounded-xl text-white outline-none resize-none text-sm"
+            style="background:#12121a; border:1px solid #2a2a3a;"
+            placeholder="Catatan opsional..." />
+        </div>
+
+        <!-- Summary -->
+        <div v-if="registerSelectedPackage" class="rounded-xl p-4" style="background:#12121a; border:1px solid rgba(139,92,246,.3);">
+          <p class="text-xs font-medium mb-2" style="color:#94a3b8;">Ringkasan Pendaftaran</p>
+          <div class="space-y-1.5 text-sm">
+            <div class="flex justify-between">
+              <span style="color:#94a3b8;">Paket</span>
+              <span class="text-white font-medium">{{ registerSelectedPackage.name }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span style="color:#94a3b8;">Jam Didapat</span>
+              <span style="color:#22d3ee;" class="font-semibold">{{ registerSelectedPackage.duration_minutes / 60 }} jam</span>
+            </div>
+            <div class="flex justify-between">
+              <span style="color:#94a3b8;">Metode</span>
+              <span class="text-white uppercase font-semibold">{{ registerForm.payment_method }}</span>
+            </div>
+            <div class="flex justify-between pt-1.5 border-t border-slate-700/50">
+              <span class="font-semibold" style="color:#a78bfa;">Total Bayar</span>
+              <span class="font-bold text-lg" style="color:#a78bfa;">{{ formatCurrency(registerSelectedPackage.price) }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Actions -->
         <div class="flex gap-3 pt-1">
           <button
@@ -584,7 +660,7 @@ function typeIcon(t: string) {
           <button
             type="button"
             @click="submitRegister"
-            :disabled="registerForm.processing || !registerForm.name || !registerForm.phone || !registerForm.package_id"
+            :disabled="registerForm.processing || !registerForm.name || !registerForm.member_package_id || !registerForm.employee_id || !registerForm.payment_method"
             class="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 hover:opacity-90"
             style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);">
             {{ registerForm.processing ? 'Mendaftarkan...' : 'Daftar Member' }}

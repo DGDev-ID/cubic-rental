@@ -1,25 +1,34 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import GamingModal from '@/Components/GamingModal.vue'
-import { CalendarDays, Plus, Pencil, Trash2, ArrowRightCircle, Phone, Clock } from 'lucide-vue-next'
+import { CalendarDays, Plus, Pencil, Trash2, ArrowRightCircle, Phone, Clock, User, Award } from 'lucide-vue-next'
 
 interface Console  { id: number; name: string; type: string; price_per_hour: number }
 interface Employee { id: number; name: string }
+interface Member {
+  id: number
+  member_number: string
+  name: string
+  phone: string | null
+  console_type: string
+  remaining_minutes: number
+}
 interface Reservation {
   id: number
-  console_id: number; employee_id: number
+  console_id: number; employee_id: number; member_id: number | null
   customer_name: string; customer_phone: string | null
   reserved_at: string; duration_hours: number | null
   notes: string | null; status: 'pending' | 'confirmed' | 'cancelled' | 'converted'
-  console: Console; employee: Employee
+  console: Console; employee: Employee; member?: Member | null
 }
 
 const props = defineProps<{
   reservations: Reservation[]
   consoles: Console[]
   employees: Employee[]
+  members: Member[]
   filters: { status?: string; date?: string }
 }>()
 
@@ -82,9 +91,11 @@ function validateOperatingHours(datetimeStr: string): boolean {
 
 // Add modal
 const showAdd = ref(false)
+const addCustomerType = ref<'non_member' | 'member'>('non_member')
 const addForm = useForm({
   console_id: null as number | null,
   employee_id: null as number | null,
+  member_id: null as number | null,
   customer_name: '',
   customer_phone: '',
   reserved_at: '',
@@ -92,9 +103,44 @@ const addForm = useForm({
   notes: '',
 })
 
+const addSelectedMember = computed(() =>
+  props.members.find(m => m.id === addForm.member_id) ?? null
+)
+
+const addAvailableConsoles = computed(() => {
+  if (addCustomerType.value === 'member' && addSelectedMember.value) {
+    return props.consoles.filter(
+      c => c.type.toLowerCase() === addSelectedMember.value!.console_type.toLowerCase()
+    )
+  }
+  return props.consoles
+})
+
+watch(addCustomerType, (type) => {
+  if (type === 'non_member') {
+    addForm.member_id = null
+  } else {
+    addForm.customer_name = ''
+    addForm.customer_phone = ''
+  }
+})
+
+watch(() => addForm.member_id, (id) => {
+  const m = props.members.find(item => item.id === id)
+  if (m) {
+    addForm.customer_name = m.name
+    addForm.customer_phone = m.phone ?? ''
+    if (addSelectedConsole.value && addSelectedConsole.value.type.toLowerCase() !== m.console_type.toLowerCase()) {
+      addForm.console_id = null
+    }
+  }
+})
+
 function openAdd() {
   const init = formatToLocalInput(null)
   addForm.reset()
+  addForm.clearErrors()
+  addCustomerType.value = 'non_member'
   addForm.reserved_at = init.datetime
   timeError.value = ''
   showAdd.value = true
@@ -109,10 +155,12 @@ function submitAdd() {
 
 // Edit modal
 const showEdit = ref(false)
+const editCustomerType = ref<'non_member' | 'member'>('non_member')
 const editForm = useForm({
   id: 0,
   console_id: null as number | null,
   employee_id: null as number | null,
+  member_id: null as number | null,
   customer_name: '',
   customer_phone: '',
   reserved_at: '',
@@ -121,16 +169,49 @@ const editForm = useForm({
   status: 'pending' as string,
 })
 
+const editSelectedMember = computed(() =>
+  props.members.find(m => m.id === editForm.member_id) ?? null
+)
+
+const editAvailableConsoles = computed(() => {
+  if (editCustomerType.value === 'member' && editSelectedMember.value) {
+    return props.consoles.filter(
+      c => c.type.toLowerCase() === editSelectedMember.value!.console_type.toLowerCase()
+    )
+  }
+  return props.consoles
+})
+
+watch(editCustomerType, (type) => {
+  if (type === 'non_member') {
+    editForm.member_id = null
+  }
+})
+
+watch(() => editForm.member_id, (id) => {
+  const m = props.members.find(item => item.id === id)
+  if (m) {
+    editForm.customer_name = m.name
+    editForm.customer_phone = m.phone ?? ''
+    if (editSelectedConsole.value && editSelectedConsole.value.type.toLowerCase() !== m.console_type.toLowerCase()) {
+      editForm.console_id = null
+    }
+  }
+})
+
 function openEdit(r: Reservation) {
-  editForm.id           = r.id
-  editForm.console_id   = r.console_id
-  editForm.employee_id  = r.employee_id
-  editForm.customer_name = r.customer_name
+  editForm.clearErrors()
+  editCustomerType.value = r.member_id ? 'member' : 'non_member'
+  editForm.id             = r.id
+  editForm.console_id     = r.console_id
+  editForm.employee_id    = r.employee_id
+  editForm.member_id      = r.member_id ?? null
+  editForm.customer_name  = r.customer_name
   editForm.customer_phone = r.customer_phone ?? ''
-  editForm.reserved_at  = formatToLocalInput(r.reserved_at).datetime
+  editForm.reserved_at    = formatToLocalInput(r.reserved_at).datetime
   editForm.duration_hours = r.duration_hours ?? ''
-  editForm.notes        = r.notes ?? ''
-  editForm.status       = r.status
+  editForm.notes          = r.notes ?? ''
+  editForm.status         = r.status
   timeError.value = ''
   showEdit.value = true
 }
@@ -272,7 +353,14 @@ function editEstimated() {
               style="border-color:#2a2a3a;">
               <td class="px-4 py-3 text-white font-medium whitespace-nowrap">{{ formatDateTime(r.reserved_at) }}</td>
               <td class="px-4 py-3 whitespace-nowrap">
-                <p class="text-white font-medium">{{ r.customer_name }}</p>
+                <div class="flex items-center gap-2">
+                  <p class="text-white font-medium">{{ r.customer_name }}</p>
+                  <span v-if="r.member_id || r.member"
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                    style="background:rgba(16,185,129,.15); color:#34d399; border:1px solid rgba(16,185,129,.35);">
+                    <Award :size="11" /> {{ r.member?.member_number ?? 'Member' }}
+                  </span>
+                </div>
                 <p v-if="r.customer_phone" class="text-xs flex items-center gap-1 mt-0.5" style="color:#94a3b8;">
                   <Phone :size="11" /> {{ r.customer_phone }}
                 </p>
@@ -335,6 +423,47 @@ function editEstimated() {
     <!-- Add Modal -->
     <GamingModal :show="showAdd" title="Tambah Reservasi" @close="showAdd = false">
       <form @submit.prevent="submitAdd" class="space-y-4">
+        <!-- Jenis Customer: Non-Member vs Member -->
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Jenis Customer *</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" @click="addCustomerType = 'non_member'"
+              class="py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
+              :style="addCustomerType === 'non_member'
+                ? 'background:linear-gradient(135deg,#8b5cf6,#6d28d9); color:white; border:1px solid #a78bfa;'
+                : 'background:#12121a; color:#94a3b8; border:1px solid #2a2a3a;'">
+              <User :size="14" /> Non-Member
+            </button>
+            <button type="button" @click="addCustomerType = 'member'"
+              class="py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
+              :style="addCustomerType === 'member'
+                ? 'background:linear-gradient(135deg,#10b981,#059669); color:white; border:1px solid #34d399;'
+                : 'background:#12121a; color:#94a3b8; border:1px solid #2a2a3a;'">
+              <Award :size="14" /> Member
+            </button>
+          </div>
+        </div>
+
+        <!-- Member Selector -->
+        <div v-if="addCustomerType === 'member'" class="p-3 rounded-xl space-y-2" style="background:rgba(16,185,129,.06); border:1px solid rgba(16,185,129,.3);">
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-emerald-400">Pilih Member *</label>
+            <select v-model.number="addForm.member_id" required
+              class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+              style="background:#12121a; border:1px solid #2a2a3a;">
+              <option :value="null">-- Pilih Member --</option>
+              <option v-for="m in members" :key="m.id" :value="m.id">
+                {{ m.member_number }} - {{ m.name }} ({{ m.console_type.toUpperCase() }} | Sisa: {{ Math.floor(m.remaining_minutes / 60) }}j {{ m.remaining_minutes % 60 }}m)
+              </option>
+            </select>
+            <p v-if="addForm.errors.member_id" class="text-red-400 text-xs mt-1">{{ addForm.errors.member_id }}</p>
+          </div>
+          <div v-if="addSelectedMember" class="text-xs flex items-center justify-between pt-1" style="color:#94a3b8;">
+            <span>Room diizinkan: <strong class="uppercase text-emerald-400">{{ addSelectedMember.console_type }}</strong></span>
+            <span>Sisa: <strong class="text-white">{{ Math.floor(addSelectedMember.remaining_minutes / 60) }}j {{ addSelectedMember.remaining_minutes % 60 }}m</strong></span>
+          </div>
+        </div>
+
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Console / Room</label>
@@ -342,13 +471,17 @@ function editEstimated() {
               class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
               style="background:#12121a; border:1px solid #2a2a3a;">
               <option :value="null">-- Pilih Room --</option>
-              <option v-for="c in consoles" :key="c.id" :value="c.id">{{ c.name }}</option>
+              <option v-for="c in addAvailableConsoles" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
+            <p v-if="addForm.errors.console_id" class="text-red-400 text-xs mt-1">{{ addForm.errors.console_id }}</p>
             <div v-if="addSelectedConsole" class="mt-1.5 px-3 py-1.5 rounded-lg flex items-center justify-between" style="background:rgba(139,92,246,.1); border:1px solid rgba(139,92,246,.25);">
-              <span class="text-xs" style="color:#a78bfa;">{{ formatCurrency(addSelectedConsole.price_per_hour) }} / jam</span>
-              <span v-if="addEstimated()" class="text-xs font-semibold text-white">
-                ≈ {{ formatCurrency(addEstimated() ?? 0) }}
-              </span>
+              <span v-if="addCustomerType === 'member'" class="text-xs text-emerald-400 font-medium">Potong Kuota Member</span>
+              <template v-else>
+                <span class="text-xs" style="color:#a78bfa;">{{ formatCurrency(addSelectedConsole.price_per_hour) }} / jam</span>
+                <span v-if="addEstimated()" class="text-xs font-semibold text-white">
+                  ≈ {{ formatCurrency(addEstimated() ?? 0) }}
+                </span>
+              </template>
             </div>
           </div>
           <div>
@@ -361,12 +494,13 @@ function editEstimated() {
             </select>
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div v-if="addCustomerType === 'non_member'" class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Nama Customer</label>
             <input v-model="addForm.customer_name" required
               class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
               style="background:#12121a; border:1px solid #2a2a3a;" />
+            <p v-if="addForm.errors.customer_name" class="text-red-400 text-xs mt-1">{{ addForm.errors.customer_name }}</p>
           </div>
           <div>
             <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">No. HP (opsional)</label>
@@ -438,19 +572,60 @@ function editEstimated() {
     <!-- Edit Modal -->
     <GamingModal :show="showEdit" title="Edit Reservasi" @close="showEdit = false">
       <form @submit.prevent="submitEdit" class="space-y-4">
+        <!-- Jenis Customer: Non-Member vs Member -->
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Jenis Customer *</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" @click="editCustomerType = 'non_member'"
+              class="py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
+              :style="editCustomerType === 'non_member'
+                ? 'background:linear-gradient(135deg,#3b82f6,#2563eb); color:white; border:1px solid #60a5fa;'
+                : 'background:#12121a; color:#94a3b8; border:1px solid #2a2a3a;'">
+              <User :size="14" /> Non-Member
+            </button>
+            <button type="button" @click="editCustomerType = 'member'"
+              class="py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
+              :style="editCustomerType === 'member'
+                ? 'background:linear-gradient(135deg,#10b981,#059669); color:white; border:1px solid #34d399;'
+                : 'background:#12121a; color:#94a3b8; border:1px solid #2a2a3a;'">
+              <Award :size="14" /> Member
+            </button>
+          </div>
+        </div>
+
+        <!-- Member Selector -->
+        <div v-if="editCustomerType === 'member'" class="p-3 rounded-xl space-y-2" style="background:rgba(16,185,129,.06); border:1px solid rgba(16,185,129,.3);">
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-emerald-400">Pilih Member *</label>
+            <select v-model.number="editForm.member_id" required
+              class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+              style="background:#12121a; border:1px solid #2a2a3a;">
+              <option :value="null">-- Pilih Member --</option>
+              <option v-for="m in members" :key="m.id" :value="m.id">
+                {{ m.member_number }} - {{ m.name }} ({{ m.console_type.toUpperCase() }} | Sisa: {{ Math.floor(m.remaining_minutes / 60) }}j {{ m.remaining_minutes % 60 }}m)
+              </option>
+            </select>
+            <p v-if="editForm.errors.member_id" class="text-red-400 text-xs mt-1">{{ editForm.errors.member_id }}</p>
+          </div>
+        </div>
+
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Console / Room</label>
             <select v-model.number="editForm.console_id" required
               class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
               style="background:#12121a; border:1px solid #2a2a3a;">
-              <option v-for="c in consoles" :key="c.id" :value="c.id">{{ c.name }}</option>
+              <option v-for="c in editAvailableConsoles" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
+            <p v-if="editForm.errors.console_id" class="text-red-400 text-xs mt-1">{{ editForm.errors.console_id }}</p>
             <div v-if="editSelectedConsole" class="mt-1.5 px-3 py-1.5 rounded-lg flex items-center justify-between" style="background:rgba(59,130,246,.1); border:1px solid rgba(59,130,246,.25);">
-              <span class="text-xs" style="color:#60a5fa;">{{ formatCurrency(editSelectedConsole.price_per_hour) }} / jam</span>
-              <span v-if="editEstimated()" class="text-xs font-semibold text-white">
-                ≈ {{ formatCurrency(editEstimated() ?? 0) }}
-              </span>
+              <span v-if="editCustomerType === 'member'" class="text-xs text-emerald-400 font-medium">Potong Kuota Member</span>
+              <template v-else>
+                <span class="text-xs" style="color:#60a5fa;">{{ formatCurrency(editSelectedConsole.price_per_hour) }} / jam</span>
+                <span v-if="editEstimated()" class="text-xs font-semibold text-white">
+                  ≈ {{ formatCurrency(editEstimated() ?? 0) }}
+                </span>
+              </template>
             </div>
           </div>
           <div>
@@ -462,12 +637,13 @@ function editEstimated() {
             </select>
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div v-if="editCustomerType === 'non_member'" class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">Nama Customer</label>
             <input v-model="editForm.customer_name" required
               class="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
               style="background:#12121a; border:1px solid #2a2a3a;" />
+            <p v-if="editForm.errors.customer_name" class="text-red-400 text-xs mt-1">{{ editForm.errors.customer_name }}</p>
           </div>
           <div>
             <label class="block text-xs font-medium mb-1.5" style="color:#94a3b8;">No. HP</label>

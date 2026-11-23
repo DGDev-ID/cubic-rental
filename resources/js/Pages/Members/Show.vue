@@ -52,18 +52,19 @@ const showTopUpModal = ref(false)
 
 const topUpForm = useForm({
   member_id: props.member.id,
-  package_id: null as number | null,
+  member_package_id: null as number | null,
   payment_method: 'cash',
   employee_id: null as number | null,
   notes: '',
 })
 
 const selectedPackage = computed(() =>
-  props.packages.find(p => p.id === topUpForm.package_id) ?? null
+  props.packages.find(p => p.id === topUpForm.member_package_id) ?? null
 )
 
 function openTopUp() {
   topUpForm.reset()
+  topUpForm.clearErrors()
   topUpForm.member_id = props.member.id
   topUpForm.payment_method = 'cash'
   showTopUpModal.value = true
@@ -406,9 +407,9 @@ const rentalStatusLabels: Record<string, string> = {
             <button
               v-for="pkg in packages" :key="pkg.id"
               type="button"
-              @click="topUpForm.package_id = pkg.id"
+              @click="topUpForm.member_package_id = pkg.id"
               class="p-3 rounded-xl text-left transition-all"
-              :style="topUpForm.package_id === pkg.id
+              :style="topUpForm.member_package_id === pkg.id
                 ? 'background:rgba(139,92,246,.25); border:1px solid rgba(139,92,246,.6);'
                 : 'background:#12121a; border:1px solid #2a2a3a;'">
               <div class="flex items-center justify-between mb-1">
@@ -425,7 +426,7 @@ const rentalStatusLabels: Record<string, string> = {
               <p class="text-sm font-bold mt-1" style="color:#a78bfa;">{{ formatCurrency(pkg.price) }}</p>
             </button>
           </div>
-          <p v-if="topUpForm.errors.package_id" class="text-red-400 text-xs mt-1">{{ topUpForm.errors.package_id }}</p>
+          <p v-if="topUpForm.errors.member_package_id" class="text-red-400 text-xs mt-1">{{ topUpForm.errors.member_package_id }}</p>
         </div>
 
         <!-- Kasir -->
@@ -444,9 +445,9 @@ const rentalStatusLabels: Record<string, string> = {
         <!-- Metode Pembayaran -->
         <div>
           <label class="block text-xs font-medium mb-2" style="color:#94a3b8;">Metode Pembayaran *</label>
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
-              v-for="m in ['cash', 'qris']" :key="m"
+              v-for="m in ['cash', 'qris', 'transfer', 'debit']" :key="m"
               type="button"
               @click="topUpForm.payment_method = m"
               class="py-2.5 px-3 rounded-xl text-xs font-semibold uppercase transition-all"
@@ -511,7 +512,7 @@ const rentalStatusLabels: Record<string, string> = {
           <button
             type="button"
             @click="submitTopUp"
-            :disabled="topUpForm.processing || !topUpForm.package_id || !topUpForm.employee_id"
+            :disabled="topUpForm.processing || !topUpForm.member_package_id || !topUpForm.employee_id"
             class="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 hover:opacity-90"
             style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);">
             {{ topUpForm.processing ? 'Memproses...' : 'Konfirmasi Top-Up' }}

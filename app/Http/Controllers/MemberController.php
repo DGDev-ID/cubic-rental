@@ -78,7 +78,7 @@ class MemberController extends Controller
             'phone'             => 'nullable|string|max:20',
             'member_package_id' => 'required|exists:member_packages,id',
             'employee_id'       => 'required|exists:employees,id',
-            'payment_method'    => 'required|in:cash,qris',
+            'payment_method'    => 'required|in:cash,qris,transfer,debit',
             'notes'             => 'nullable|string|max:255',
         ]);
 
@@ -93,7 +93,7 @@ class MemberController extends Controller
         $data = $request->validate([
             'member_package_id' => 'required|exists:member_packages,id',
             'employee_id'       => 'required|exists:employees,id',
-            'payment_method'    => 'required|in:cash,qris',
+            'payment_method'    => 'required|in:cash,qris,transfer,debit',
             'notes'             => 'nullable|string|max:255',
         ]);
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Reservation;
 use App\Models\Console;
 use App\Models\Employee;
+use App\Models\Member;
 use App\Services\RentalService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -18,7 +19,7 @@ class ReservationController extends Controller
 
     public function index(Request $request): Response
     {
-        $query = Reservation::with(['console', 'employee'])
+        $query = Reservation::with(['console', 'employee', 'member'])
             ->orderBy('reserved_at', 'asc');
 
         if ($request->status) {
@@ -35,6 +36,7 @@ class ReservationController extends Controller
             'reservations' => $query->get(),
             'consoles'     => Console::orderBy('name')->get(),
             'employees'    => Employee::where('status', 'active')->orderBy('name')->get(),
+            'members'      => Member::where('status', 'active')->orderBy('name')->get(['id', 'member_number', 'name', 'phone', 'console_type', 'remaining_minutes']),
             'filters'      => $request->only(['status', 'date']),
         ]);
     }
@@ -44,12 +46,25 @@ class ReservationController extends Controller
         $data = $request->validate([
             'console_id'     => 'required|exists:consoles,id',
             'employee_id'    => 'required|exists:employees,id',
-            'customer_name'  => 'required|string|max:100',
+            'member_id'      => 'nullable|exists:members,id',
+            'customer_name'  => 'required_without:member_id|nullable|string|max:100',
             'customer_phone' => 'nullable|string|max:20',
             'reserved_at'    => 'required|date',
             'duration_hours' => 'nullable|numeric|min:0.5|max:24',
             'notes'          => 'nullable|string|max:500',
         ]);
+
+        if (!empty($data['member_id'])) {
+            $member = Member::findOrFail($data['member_id']);
+            $console = Console::findOrFail($data['console_id']);
+            if (strtolower($console->type) !== strtolower($member->console_type)) {
+                return back()->withErrors([
+                    'console_id' => "Console {$console->name} ({$console->type}) tidak sesuai dengan tipe member ({$member->console_type}).",
+                ]);
+            }
+            $data['customer_name'] = !empty($data['customer_name']) ? $data['customer_name'] : $member->name;
+            $data['customer_phone'] = !empty($data['customer_phone']) ? $data['customer_phone'] : $member->phone;
+        }
 
         $reservedAt = Carbon::parse($data['reserved_at']);
         $timeInMinutes = ((int)$reservedAt->format('H')) * 60 + ((int)$reservedAt->format('i'));
@@ -66,13 +81,26 @@ class ReservationController extends Controller
         $data = $request->validate([
             'console_id'     => 'required|exists:consoles,id',
             'employee_id'    => 'required|exists:employees,id',
-            'customer_name'  => 'required|string|max:100',
+            'member_id'      => 'nullable|exists:members,id',
+            'customer_name'  => 'required_without:member_id|nullable|string|max:100',
             'customer_phone' => 'nullable|string|max:20',
             'reserved_at'    => 'required|date',
             'duration_hours' => 'nullable|numeric|min:0.5|max:24',
             'notes'          => 'nullable|string|max:500',
             'status'         => 'required|in:pending,confirmed,cancelled',
         ]);
+
+        if (!empty($data['member_id'])) {
+            $member = Member::findOrFail($data['member_id']);
+            $console = Console::findOrFail($data['console_id']);
+            if (strtolower($console->type) !== strtolower($member->console_type)) {
+                return back()->withErrors([
+                    'console_id' => "Console {$console->name} ({$console->type}) tidak sesuai dengan tipe member ({$member->console_type}).",
+                ]);
+            }
+            $data['customer_name'] = !empty($data['customer_name']) ? $data['customer_name'] : $member->name;
+            $data['customer_phone'] = !empty($data['customer_phone']) ? $data['customer_phone'] : $member->phone;
+        }
 
         $reservedAt = Carbon::parse($data['reserved_at']);
         $timeInMinutes = ((int)$reservedAt->format('H')) * 60 + ((int)$reservedAt->format('i'));
@@ -96,13 +124,18 @@ class ReservationController extends Controller
             return back()->with('error', 'Reservasi sudah dikonversi.');
         }
 
-        $rental = $this->rentalService->create([
-            'console_id'     => $reservation->console_id,
-            'employee_id'    => $reservation->employee_id,
-            'customer_name'  => $reservation->customer_name,
-            'duration_hours' => $reservation->duration_hours,
-            'notes'          => $reservation->notes,
-        ]);
+        try {
+            $rental = $this->rentalService->create([
+                'console_id'     => $reservation->console_id,
+                'employee_id'    => $reservation->employee_id,
+                'member_id'      => $reservation->member_id,
+                'customer_name'  => $reservation->customer_name,
+                'duration_hours' => $reservation->duration_hours,
+                'notes'          => $reservation->notes,
+            ]);
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         $reservation->update(['status' => 'converted', 'rental_id' => $rental->id]);
 
