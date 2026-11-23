@@ -39,7 +39,7 @@ class MemberController extends Controller
             'total'     => Member::count(),
             'active'    => Member::where('status', 'active')->count(),
             'exhausted' => Member::where('status', 'exhausted')->count(),
-            'total_revenue' => \App\Models\MemberDeposit::sum('amount'),
+            'total_revenue' => \App\Models\MemberDeposit::whereHas('member')->sum('amount'),
         ];
 
         return Inertia::render('Members/Index', [
@@ -113,6 +113,7 @@ class MemberController extends Controller
         }
 
         $label = "{$member->member_number} ({$member->name})";
+        $member->deposits()->delete();
         $member->delete();
 
         return back()->with('success', "Member {$label} berhasil dihapus.");
