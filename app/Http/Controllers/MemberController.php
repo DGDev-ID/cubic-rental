@@ -105,5 +105,17 @@ class MemberController extends Controller
 
         return back()->with('success', 'Deposit berhasil ditambahkan!');
     }
+
+    public function destroy(Member $member): RedirectResponse
+    {
+        if ($member->rentals()->where('status', 'running')->exists()) {
+            return back()->with('error', 'Member sedang memiliki sesi rental yang berjalan dan tidak dapat dihapus.');
+        }
+
+        $label = "{$member->member_number} ({$member->name})";
+        $member->delete();
+
+        return back()->with('success', "Member {$label} berhasil dihapus.");
+    }
 }
 

@@ -66,6 +66,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/members', [MemberController::class, 'store'])->name('members.store');
     Route::get('/members/{member}', [MemberController::class, 'show'])->name('members.show');
     Route::post('/members/{member}/deposit', [MemberController::class, 'deposit'])->name('members.deposit');
+    Route::delete('/members/{member}', [MemberController::class, 'destroy'])->name('members.destroy');
 
     // Cash Outbound
     Route::get('/cash-outbounds/export', [CashOutboundController::class, 'exportExcel'])->name('cash-outbounds.export');

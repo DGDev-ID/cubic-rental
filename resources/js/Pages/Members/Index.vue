@@ -5,7 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 import GamingModal from '@/Components/GamingModal.vue'
 import {
   Users, UserCheck, Clock, Wallet, Plus, Search, X,
-  Eye, CreditCard, ChevronRight, Crown, Star, Gem, Zap,
+  Eye, CreditCard, ChevronRight, Crown, Star, Gem, Zap, Trash2,
 } from 'lucide-vue-next'
 
 interface MemberPackage {
@@ -24,8 +24,10 @@ interface Member {
   console_type: string
   remaining_minutes: number
   status: string
-  total_deposits_count: number
-  total_deposited_amount: number
+  deposits_count?: number
+  deposits_sum_amount?: number | string | null
+  total_deposits_count?: number
+  total_deposited_amount?: number
   created_at: string
 }
 
@@ -128,9 +130,28 @@ function submitRegister() {
   })
 }
 
+// ─── Delete Member ───────────────────────────────────────────────────────────
+const confirmDeleteMember = ref<Member | null>(null)
+const deleting = ref(false)
+
+function doDeleteMember() {
+  if (!confirmDeleteMember.value) return
+  deleting.value = true
+  router.delete(route('members.destroy', confirmDeleteMember.value.id), {
+    preserveScroll: true,
+    onSuccess: () => {
+      confirmDeleteMember.value = null
+    },
+    onFinish: () => {
+      deleting.value = false
+    },
+  })
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-function formatCurrency(v: number) {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v)
+function formatCurrency(v: number | string | null | undefined) {
+  const num = Number(v ?? 0)
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number.isFinite(num) ? num : 0)
 }
 
 function formatMinutes(m: number) {
@@ -316,9 +337,9 @@ function typeIcon(t: string) {
             <!-- Total Deposit -->
             <td class="px-4 py-3">
               <span class="font-semibold text-sm" style="color:#a78bfa;">
-                {{ formatCurrency(m.total_deposited_amount) }}
+                {{ formatCurrency(m.deposits_sum_amount ?? m.total_deposited_amount ?? 0) }}
               </span>
-              <p class="text-xs mt-0.5" style="color:#64748b;">{{ m.total_deposits_count }}x deposit</p>
+              <p class="text-xs mt-0.5" style="color:#64748b;">{{ m.deposits_count ?? m.total_deposits_count ?? 0 }}x deposit</p>
             </td>
 
             <!-- Status -->
@@ -346,6 +367,13 @@ function typeIcon(t: string) {
                   class="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-all"
                   style="background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.3); color:#22c55e;">
                   <CreditCard :size="13" /> Top-Up
+                </button>
+                <button
+                  @click="confirmDeleteMember = m"
+                  title="Hapus Member"
+                  class="flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg transition-all hover:opacity-80"
+                  style="background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.3); color:#f87171;">
+                  <Trash2 :size="13" />
                 </button>
               </div>
             </td>
@@ -664,6 +692,37 @@ function typeIcon(t: string) {
             class="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 hover:opacity-90"
             style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);">
             {{ registerForm.processing ? 'Mendaftarkan...' : 'Daftar Member' }}
+          </button>
+        </div>
+      </div>
+    </GamingModal>
+
+    <!-- ── Modal Konfirmasi Hapus Member ──────────────────────────────────── -->
+    <GamingModal
+      :show="confirmDeleteMember !== null"
+      title="Hapus Member?"
+      maxWidth="28rem"
+      @close="confirmDeleteMember = null">
+      <div v-if="confirmDeleteMember" class="space-y-4">
+        <p class="text-sm" style="color:#94a3b8;">
+          Yakin ingin menghapus member <strong class="text-white">{{ confirmDeleteMember.name }}</strong>
+          (<span class="font-mono text-xs" style="color:#a78bfa;">{{ confirmDeleteMember.member_number }}</span>)?
+        </p>
+        <div class="flex gap-3 pt-1">
+          <button
+            type="button"
+            @click="confirmDeleteMember = null"
+            class="flex-1 py-2.5 rounded-xl text-sm font-medium"
+            style="background:#12121a; border:1px solid #2a2a3a; color:#94a3b8;">
+            Batal
+          </button>
+          <button
+            type="button"
+            @click="doDeleteMember"
+            :disabled="deleting"
+            class="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+            style="background:linear-gradient(135deg,#ef4444,#dc2626);">
+            {{ deleting ? 'Menghapus...' : 'Ya, Hapus' }}
           </button>
         </div>
       </div>
