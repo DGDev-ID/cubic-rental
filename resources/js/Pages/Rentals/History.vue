@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { router, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import GamingModal from '@/Components/GamingModal.vue'
-import { Download, TrendingUp, Users, BarChart2, ChevronLeft, ChevronRight, Filter, X, Calendar, StickyNote, Trash2, Gamepad2, UtensilsCrossed, RotateCcw, ExternalLink, Receipt, Clock, CreditCard } from 'lucide-vue-next'
+import { Download, TrendingUp, Users, BarChart2, ChevronLeft, ChevronRight, Filter, X, Calendar, StickyNote, Trash2, Gamepad2, UtensilsCrossed, RotateCcw, ExternalLink, Receipt, Clock, CreditCard, Award } from 'lucide-vue-next'
 
 interface RentalRow {
   id: number; transaction_code: string; customer_name: string; rental_type: string;
@@ -21,6 +21,7 @@ interface RentalRow {
 const props = defineProps<{
   rentals: { data: RentalRow[]; links: any[]; total: number }
   fnb_orders?: { data: any[]; links: any[]; total: number }
+  member_deposits?: { data: any[]; links: any[]; total: number }
   filters: { search: string; date: string; month?: string; year?: string; employee_id: string; console_id: string; payment_method: string }
   employees: { id: number; name: string }[]
   consoles: { id: number; name: string }[]
@@ -29,15 +30,16 @@ const props = defineProps<{
   summary_revenue: number
   summary_rental_revenue?: number
   summary_fnb_revenue?: number
+  summary_member_revenue?: number
   summary_customers: number
-  yearly_stats: { year: number; revenue: number; rental_revenue?: number; fnb_revenue?: number; customers: number }[]
-  monthly_stats: { month: number; revenue: number; rental_revenue?: number; fnb_revenue?: number; customers: number }[]
-  daily_stats: { day: number; revenue: number; rental_revenue?: number; fnb_revenue?: number; customers: number }[]
+  yearly_stats: { year: number; revenue: number; rental_revenue?: number; fnb_revenue?: number; member_revenue?: number; customers: number }[]
+  monthly_stats: { month: number; revenue: number; rental_revenue?: number; fnb_revenue?: number; member_revenue?: number; customers: number }[]
+  daily_stats: { day: number; revenue: number; rental_revenue?: number; fnb_revenue?: number; member_revenue?: number; customers: number }[]
   stats_year: number
   stats_month: number
 }>()
 
-const activeTab = ref<'rental' | 'fnb'>('rental')
+const activeTab = ref<'rental' | 'fnb' | 'member'>('rental')
 
 const filters = ref({
   search: props.filters?.search ?? '',
@@ -525,10 +527,14 @@ function savePaymentMethod() {
           <p class="text-xs font-semibold mb-1"
             :style="isSelectedYear(stat.year) ? 'color:#c4b5fd;' : 'color:#64748b;'">{{ stat.year }}</p>
           <p class="text-xs font-bold text-white leading-tight">{{ formatCurrencyShort(stat.revenue) }}</p>
-          <div v-if="stat.rental_revenue !== undefined || stat.fnb_revenue !== undefined" class="text-[10px] mt-1 flex items-center gap-1.5 text-slate-400">
+          <div v-if="stat.rental_revenue !== undefined || stat.fnb_revenue !== undefined || stat.member_revenue !== undefined" class="text-[10px] mt-1 flex items-center gap-1.5 flex-wrap text-slate-400">
             <span class="text-sky-300" title="Rental Saja">R:{{ formatCurrencyShort(stat.rental_revenue ?? 0).replace('Rp ', '') }}</span>
             <span class="text-slate-600">•</span>
             <span class="text-emerald-300" title="FnB Saja">F:{{ formatCurrencyShort(stat.fnb_revenue ?? 0).replace('Rp ', '') }}</span>
+            <template v-if="(stat.member_revenue ?? 0) > 0">
+              <span class="text-slate-600">•</span>
+              <span class="text-amber-300" title="Deposit Member">M:{{ formatCurrencyShort(stat.member_revenue ?? 0).replace('Rp ', '') }}</span>
+            </template>
           </div>
           <p class="text-[10px] mt-0.5" style="color:#94a3b8;">{{ stat.customers }} cust</p>
         </button>
@@ -547,10 +553,14 @@ function savePaymentMethod() {
           <p class="text-xs font-semibold mb-1"
             :style="isSelectedMonth(stat.month) ? 'color:#c4b5fd;' : 'color:#64748b;'">{{ monthNames[stat.month - 1] }}</p>
           <p class="text-xs font-bold text-white leading-tight">{{ formatCurrencyShort(stat.revenue) }}</p>
-          <div v-if="stat.rental_revenue !== undefined || stat.fnb_revenue !== undefined" class="text-[10px] mt-1 flex items-center gap-1.5 text-slate-400">
+          <div v-if="stat.rental_revenue !== undefined || stat.fnb_revenue !== undefined || stat.member_revenue !== undefined" class="text-[10px] mt-1 flex items-center gap-1.5 flex-wrap text-slate-400">
             <span class="text-sky-300" title="Rental Saja">R:{{ formatCurrencyShort(stat.rental_revenue ?? 0).replace('Rp ', '') }}</span>
             <span class="text-slate-600">•</span>
             <span class="text-emerald-300" title="FnB Saja">F:{{ formatCurrencyShort(stat.fnb_revenue ?? 0).replace('Rp ', '') }}</span>
+            <template v-if="(stat.member_revenue ?? 0) > 0">
+              <span class="text-slate-600">•</span>
+              <span class="text-amber-300" title="Deposit Member">M:{{ formatCurrencyShort(stat.member_revenue ?? 0).replace('Rp ', '') }}</span>
+            </template>
           </div>
           <p class="text-[10px] mt-0.5" style="color:#94a3b8;">{{ stat.customers }} cust</p>
         </button>
@@ -568,9 +578,10 @@ function savePaymentMethod() {
           <p class="text-xs font-bold mb-0.5"
             :style="isSelectedDay(stat.day) ? 'color:#c4b5fd;' : 'color:#64748b;'">{{ stat.day }}</p>
           <p class="text-[10px] font-semibold text-white leading-tight truncate">{{ stat.revenue > 0 ? formatCurrencyShort(stat.revenue) : '-' }}</p>
-          <div v-if="stat.revenue > 0" class="text-[9px] mt-0.5 flex items-center gap-1 truncate text-slate-400">
+          <div v-if="stat.revenue > 0" class="text-[9px] mt-0.5 flex items-center gap-1 flex-wrap truncate text-slate-400">
             <span class="text-sky-300">R:{{ formatCurrencyShort(stat.rental_revenue ?? 0).replace('Rp ', '') }}</span>
             <span class="text-emerald-300">F:{{ formatCurrencyShort(stat.fnb_revenue ?? 0).replace('Rp ', '') }}</span>
+            <span v-if="(stat.member_revenue ?? 0) > 0" class="text-amber-300">M:{{ formatCurrencyShort(stat.member_revenue ?? 0).replace('Rp ', '') }}</span>
           </div>
           <p class="text-[10px] mt-0.5" style="color:#94a3b8;">{{ stat.customers > 0 ? stat.customers + 'c' : '' }}</p>
         </button>
@@ -595,18 +606,18 @@ function savePaymentMethod() {
           </span>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <!-- Total Omset (Rental + FnB) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <!-- Total Omset (Gabungan) -->
           <div class="rounded-xl p-3.5 flex flex-col justify-between"
             style="background:linear-gradient(135deg, rgba(139,92,246,0.18) 0%, rgba(139,92,246,0.06) 100%); border:1px solid rgba(139,92,246,0.4);">
             <div class="flex items-center justify-between mb-1.5">
               <span class="text-xs font-semibold text-purple-200 flex items-center gap-1.5">
-                <BarChart2 :size="14" class="text-purple-400" /> Total Omset (Rental + FnB)
+                <BarChart2 :size="14" class="text-purple-400" /> Total Omset (Gabungan)
               </span>
               <span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-purple-500/25 text-purple-300">Gabungan</span>
             </div>
             <p class="text-xl font-bold" style="color:#c4b5fd;">{{ formatCurrency(summary_revenue) }}</p>
-            <p class="text-[11px] text-slate-400 mt-1">Gabungan seluruh transaksi rental console & pesanan FnB</p>
+            <p class="text-[11px] text-slate-400 mt-1">Rental console, pesanan FnB, dan deposit member</p>
           </div>
 
           <!-- Total Rental Saja -->
@@ -633,6 +644,19 @@ function savePaymentMethod() {
             </div>
             <p class="text-xl font-bold text-emerald-400">{{ formatCurrency(summary_fnb_revenue ?? 0) }}</p>
             <p class="text-[11px] text-slate-400 mt-1">Penjualan makanan & minuman (room + kasir)</p>
+          </div>
+
+          <!-- Total Deposit Member -->
+          <div class="rounded-xl p-3.5 flex flex-col justify-between"
+            style="background:linear-gradient(135deg, rgba(251,191,36,0.18) 0%, rgba(251,191,36,0.06) 100%); border:1px solid rgba(251,191,36,0.4);">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-semibold text-amber-200 flex items-center gap-1.5">
+                <Award :size="14" class="text-amber-400" /> Total Deposit Member
+              </span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-500/25 text-amber-300">Member</span>
+            </div>
+            <p class="text-xl font-bold text-amber-400">{{ formatCurrency(summary_member_revenue ?? 0) }}</p>
+            <p class="text-[11px] text-slate-400 mt-1">Registrasi member baru & top-up paket deposit</p>
           </div>
         </div>
       </div>
@@ -686,7 +710,11 @@ function savePaymentMethod() {
           <p class="text-sm font-bold text-emerald-400">{{ formatCurrency(summary_fnb_revenue ?? 0) }}</p>
         </div>
         <div class="text-right">
-          <p class="text-[11px]" style="color:#c4b5fd;">Total Omset (Rental + FnB)</p>
+          <p class="text-[11px]" style="color:#94a3b8;">Deposit Member</p>
+          <p class="text-sm font-bold text-amber-400">{{ formatCurrency(summary_member_revenue ?? 0) }}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-[11px]" style="color:#c4b5fd;">Total Omset</p>
           <p class="text-sm font-bold" style="color:#a78bfa;">{{ formatCurrency(summary_revenue) }}</p>
         </div>
         <div class="text-right pl-3 border-l border-slate-700/60">
@@ -696,7 +724,7 @@ function savePaymentMethod() {
       </div>
     </div>
 
-    <div class="flex gap-1 mb-4 p-1 rounded-xl w-fit" style="background:#1a1a26; border:1px solid #2a2a3a;">
+    <div class="flex gap-1 mb-4 p-1 rounded-xl w-fit flex-wrap" style="background:#1a1a26; border:1px solid #2a2a3a;">
       <button @click="activeTab = 'rental'" class="px-4 py-2 rounded-lg text-sm font-medium transition-all"
         :style="activeTab === 'rental' ? 'background:linear-gradient(135deg,#8b5cf6,#3b82f6); color:white;' : 'color:#94a3b8;'">
         Rental ({{ rentals.total }})
@@ -704,6 +732,10 @@ function savePaymentMethod() {
       <button @click="activeTab = 'fnb'" class="px-4 py-2 rounded-lg text-sm font-medium transition-all"
         :style="activeTab === 'fnb' ? 'background:linear-gradient(135deg,#10b981,#059669); color:white;' : 'color:#94a3b8;'">
         FnB Only ({{ fnb_orders?.total || 0 }})
+      </button>
+      <button @click="activeTab = 'member'" class="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+        :style="activeTab === 'member' ? 'background:linear-gradient(135deg,#f59e0b,#d97706); color:white;' : 'color:#94a3b8;'">
+        Deposit Member ({{ member_deposits?.total || 0 }})
       </button>
     </div>
 
@@ -852,6 +884,60 @@ function savePaymentMethod() {
       </div>
     </div>
 
+    <!-- Table Member Deposit -->
+    <div v-if="activeTab === 'member' && member_deposits" class="rounded-xl overflow-hidden" style="border:1px solid #2a2a3a;">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[700px]">
+          <thead style="background:#12121a;">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">No. Member</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Nama Member</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Paket</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Kasir</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Metode</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Waktu</th>
+              <th class="px-4 py-3 text-left text-xs font-medium whitespace-nowrap" style="color:#64748b;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="member_deposits.data.length === 0">
+              <td colspan="7" class="px-4 py-10 text-center text-xs" style="color:#64748b;">Tidak ada data</td>
+            </tr>
+            <tr v-for="d in member_deposits.data" :key="d.id"
+              class="transition-colors" style="border-top:1px solid #1a1a26;">
+              <td class="px-4 py-3 font-mono text-xs whitespace-nowrap" style="color:#a78bfa;">
+                {{ d.member?.member_number ?? '-' }}
+              </td>
+              <td class="px-4 py-3">
+                <span class="text-white font-medium">{{ d.member?.name ?? '-' }}</span>
+                <div v-if="d.notes" class="text-[11px] text-amber-400/90 truncate max-w-[180px] flex items-center gap-1 mt-0.5" :title="d.notes">
+                  <StickyNote :size="11" class="shrink-0" />
+                  <span class="truncate">{{ d.notes }}</span>
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span class="text-white">{{ d.package?.name ?? '-' }}</span>
+                <span v-if="d.minutes_credited" class="ml-1.5 text-xs" style="color:#22d3ee;">
+                  ({{ d.minutes_credited / 60 }}j)
+                </span>
+              </td>
+              <td class="px-4 py-3 text-xs whitespace-nowrap" style="color:#94a3b8;">
+                {{ d.employee?.name ?? '-' }}
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span class="text-xs px-2 py-0.5 rounded-full uppercase font-semibold"
+                  style="background:rgba(251,191,36,.15); color:#fbbf24;">
+                  {{ d.payment_method }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-xs whitespace-nowrap" style="color:#94a3b8;">{{ formatDt(d.created_at) }}</td>
+              <td class="px-4 py-3 font-semibold whitespace-nowrap text-amber-400">{{ formatCurrency(d.amount) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- Pagination -->
     <div v-if="activeTab === 'rental'" class="flex gap-1 mt-4 justify-center flex-wrap">
       <template v-for="link in rentals.links" :key="link.label">
@@ -870,6 +956,17 @@ function savePaymentMethod() {
           class="px-3 py-1.5 rounded-xl text-xs"
           :style="link.active
             ? 'background:rgba(16,185,129,.3); color:white; border:1px solid rgba(16,185,129,.5);'
+            : 'background:#1a1a26; color:#94a3b8; border:1px solid #2a2a3a;'"
+          v-html="link.label" />
+        <span v-else class="px-3 py-1.5 rounded-xl text-xs" style="color:#3a3a4a;" v-html="link.label" />
+      </template>
+    </div>
+    <div v-if="activeTab === 'member' && member_deposits" class="flex gap-1 mt-4 justify-center flex-wrap">
+      <template v-for="link in member_deposits.links" :key="link.label">
+        <a v-if="link.url" :href="link.url"
+          class="px-3 py-1.5 rounded-xl text-xs"
+          :style="link.active
+            ? 'background:rgba(245,158,11,.3); color:white; border:1px solid rgba(245,158,11,.5);'
             : 'background:#1a1a26; color:#94a3b8; border:1px solid #2a2a3a;'"
           v-html="link.label" />
         <span v-else class="px-3 py-1.5 rounded-xl text-xs" style="color:#3a3a4a;" v-html="link.label" />

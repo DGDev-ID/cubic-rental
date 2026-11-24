@@ -256,6 +256,9 @@ class RentalController extends Controller
         $fnbQuery = \App\Models\FnbOrder::with(['employee', 'console', 'items.fnbItem'])
             ->where('status', 'paid');
 
+        $memberDepositQuery = \App\Models\MemberDeposit::with(['member', 'package', 'employee'])
+            ->whereHas('member');
+
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('transaction_code', 'ilike', "%{$request->search}%")
@@ -265,50 +268,68 @@ class RentalController extends Controller
                 $q->where('code', 'ilike', "%{$request->search}%")
                   ->orWhere('customer_name', 'ilike', "%{$request->search}%");
             });
+            $memberDepositQuery->where(function ($q) use ($request) {
+                $q->whereHas('member', function ($mq) use ($request) {
+                    $mq->where('name', 'ilike', "%{$request->search}%")
+                       ->orWhere('member_number', 'ilike', "%{$request->search}%");
+                })->orWhereHas('package', function ($pq) use ($request) {
+                    $pq->where('name', 'ilike', "%{$request->search}%");
+                });
+            });
         }
         if ($request->date) {
             $query->whereDate('started_at', $request->date);
             $fnbQuery->whereDate('paid_at', $request->date);
+            $memberDepositQuery->whereDate('created_at', $request->date);
         } elseif ($request->month) {
             [$y, $m] = explode('-', $request->month);
             $query->whereYear('started_at', (int) $y)->whereMonth('started_at', (int) $m);
             $fnbQuery->whereYear('paid_at', (int) $y)->whereMonth('paid_at', (int) $m);
+            $memberDepositQuery->whereYear('created_at', (int) $y)->whereMonth('created_at', (int) $m);
         } elseif ($request->year) {
             $query->whereYear('started_at', (int) $request->year);
             $fnbQuery->whereYear('paid_at', (int) $request->year);
+            $memberDepositQuery->whereYear('created_at', (int) $request->year);
         }
         if ($request->employee_id) {
             $query->where('employee_id', $request->employee_id);
             $fnbQuery->where('employee_id', $request->employee_id);
+            $memberDepositQuery->where('employee_id', $request->employee_id);
         }
         if ($request->console_id) {
             $query->where('console_id', $request->console_id);
             $fnbQuery->where('console_id', $request->console_id);
+            $memberDepositQuery->whereRaw('1 = 0');
         }
         if ($request->payment_method) {
             $query->whereHas('payments', fn($q) => $q->where('method', $request->payment_method));
             $fnbQuery->where('payment_method', $request->payment_method);
+            $memberDepositQuery->where('payment_method', $request->payment_method);
         }
 
         // Filtered summary (revenue & customers for the current filter, excluding cancelled)
         $rentalQuerySummary = $query->clone()->whereIn('status', ['finished', 'paid', 'half_paid']);
         $fnbQuerySummary    = $fnbQuery->clone();
+        $memberQuerySummary = $memberDepositQuery->clone();
 
         $summaryRentalRevenue = (float) ($rentalQuerySummary->clone()->sum('rental_amount') + $rentalQuerySummary->clone()->sum('extra_amount'));
         $summaryFnbFromRental = (float) $rentalQuerySummary->clone()->sum('fnb_amount');
         $summaryFnbStandalone = (float) $fnbQuerySummary->clone()->sum('total_amount');
         $summaryFnbRevenue    = $summaryFnbFromRental + $summaryFnbStandalone;
-        $summaryRevenue       = $summaryRentalRevenue + $summaryFnbRevenue;
+        $summaryMemberRevenue = (float) $memberQuerySummary->clone()->sum('amount');
+        $summaryRevenue       = $summaryRentalRevenue + $summaryFnbRevenue + $summaryMemberRevenue;
 
-        $summaryCustomers = $rentalQuerySummary->count() + $fnbQuerySummary->count();
+        $summaryCustomers = $rentalQuerySummary->count() + $fnbQuerySummary->count() + $memberQuerySummary->count();
 
         // Today stats (always today, unaffected by filters)
         $today = now()->toDateString();
         $todayRentals = Rental::whereNotNull('ended_at')->whereIn('status', ['finished', 'paid', 'half_paid'])->whereDate('started_at', $today);
         $todayRevenue = $todayRentals->sum('total_amount')
-            + \App\Models\FnbOrder::where('status', 'paid')->whereDate('paid_at', $today)->sum('total_amount');
+            + \App\Models\FnbOrder::where('status', 'paid')->whereDate('paid_at', $today)->sum('total_amount')
+            + \App\Models\MemberDeposit::whereHas('member')->whereDate('created_at', $today)->sum('amount');
         $todayCustomers = Rental::whereNotNull('ended_at')->whereDate('started_at', $today)->count()
-            + \App\Models\FnbOrder::where('status', 'paid')->whereDate('paid_at', $today)->count();
+            + \App\Models\FnbOrder::where('status', 'paid')->whereDate('paid_at', $today)->count()
+            + \App\Models\MemberDeposit::whereHas('member')->whereDate('created_at', $today)->count();
 
         // Yearly stats (all available years)
         $yRentals = Rental::whereNotNull('ended_at')->whereIn('status', ['finished', 'paid', 'half_paid'])
@@ -321,14 +342,20 @@ class RentalController extends Controller
             ->groupByRaw('EXTRACT(YEAR FROM paid_at)')
             ->orderByRaw('EXTRACT(YEAR FROM paid_at)')
             ->get()->keyBy(fn($r) => (int) $r->year);
-        $allYears = $yRentals->keys()->merge($yFnb->keys())->unique()->sort()->values();
+        $yMember = \App\Models\MemberDeposit::whereHas('member')
+            ->selectRaw('EXTRACT(YEAR FROM created_at) as year, SUM(amount) as revenue, COUNT(*) as customers')
+            ->groupByRaw('EXTRACT(YEAR FROM created_at)')
+            ->orderByRaw('EXTRACT(YEAR FROM created_at)')
+            ->get()->keyBy(fn($r) => (int) $r->year);
+        $allYears = $yRentals->keys()->merge($yFnb->keys())->merge($yMember->keys())->unique()->sort()->values();
         if ($allYears->isEmpty()) $allYears = collect([now()->year]);
         $yearlyStats = $allYears->map(fn($yr) => [
             'year'           => (int) $yr,
-            'revenue'        => (float) (($yRentals->get($yr)?->revenue ?? 0) + ($yFnb->get($yr)?->revenue ?? 0)),
+            'revenue'        => (float) (($yRentals->get($yr)?->revenue ?? 0) + ($yFnb->get($yr)?->revenue ?? 0) + ($yMember->get($yr)?->revenue ?? 0)),
             'rental_revenue' => (float) ($yRentals->get($yr)?->rental_revenue ?? 0),
             'fnb_revenue'    => (float) (($yRentals->get($yr)?->fnb_revenue ?? 0) + ($yFnb->get($yr)?->revenue ?? 0)),
-            'customers'      => (int) (($yRentals->get($yr)?->customers ?? 0) + ($yFnb->get($yr)?->customers ?? 0)),
+            'member_revenue' => (float) ($yMember->get($yr)?->revenue ?? 0),
+            'customers'      => (int) (($yRentals->get($yr)?->customers ?? 0) + ($yFnb->get($yr)?->customers ?? 0) + ($yMember->get($yr)?->customers ?? 0)),
         ])->values();
 
         // Monthly stats for the selected year
@@ -343,12 +370,18 @@ class RentalController extends Controller
             ->selectRaw('EXTRACT(MONTH FROM paid_at) as month, SUM(total_amount) as revenue, COUNT(*) as customers')
             ->groupByRaw('EXTRACT(MONTH FROM paid_at)')
             ->get()->keyBy(fn($r) => (int) $r->month);
+        $mMember = \App\Models\MemberDeposit::whereHas('member')
+            ->whereYear('created_at', $statsYear)
+            ->selectRaw('EXTRACT(MONTH FROM created_at) as month, SUM(amount) as revenue, COUNT(*) as customers')
+            ->groupByRaw('EXTRACT(MONTH FROM created_at)')
+            ->get()->keyBy(fn($r) => (int) $r->month);
         $monthlyStats = collect(range(1, 12))->map(fn($m) => [
             'month'          => $m,
-            'revenue'        => (float) (($mRentals->get($m)?->revenue ?? 0) + ($mFnb->get($m)?->revenue ?? 0)),
+            'revenue'        => (float) (($mRentals->get($m)?->revenue ?? 0) + ($mFnb->get($m)?->revenue ?? 0) + ($mMember->get($m)?->revenue ?? 0)),
             'rental_revenue' => (float) ($mRentals->get($m)?->rental_revenue ?? 0),
             'fnb_revenue'    => (float) (($mRentals->get($m)?->fnb_revenue ?? 0) + ($mFnb->get($m)?->revenue ?? 0)),
-            'customers'      => (int) (($mRentals->get($m)?->customers ?? 0) + ($mFnb->get($m)?->customers ?? 0)),
+            'member_revenue' => (float) ($mMember->get($m)?->revenue ?? 0),
+            'customers'      => (int) (($mRentals->get($m)?->customers ?? 0) + ($mFnb->get($m)?->customers ?? 0) + ($mMember->get($m)?->customers ?? 0)),
         ])->values();
 
         // Daily stats for the selected year+month
@@ -366,17 +399,25 @@ class RentalController extends Controller
             ->selectRaw('EXTRACT(DAY FROM paid_at) as day, SUM(total_amount) as revenue, COUNT(*) as customers')
             ->groupByRaw('EXTRACT(DAY FROM paid_at)')
             ->get()->keyBy(fn($r) => (int) $r->day);
+        $dMember = \App\Models\MemberDeposit::whereHas('member')
+            ->whereYear('created_at', $statsYear)
+            ->whereMonth('created_at', $statsMonth)
+            ->selectRaw('EXTRACT(DAY FROM created_at) as day, SUM(amount) as revenue, COUNT(*) as customers')
+            ->groupByRaw('EXTRACT(DAY FROM created_at)')
+            ->get()->keyBy(fn($r) => (int) $r->day);
         $dailyStats = collect(range(1, $daysInMonth))->map(fn($d) => [
             'day'            => $d,
-            'revenue'        => (float) (($dRentals->get($d)?->revenue ?? 0) + ($dFnb->get($d)?->revenue ?? 0)),
+            'revenue'        => (float) (($dRentals->get($d)?->revenue ?? 0) + ($dFnb->get($d)?->revenue ?? 0) + ($dMember->get($d)?->revenue ?? 0)),
             'rental_revenue' => (float) ($dRentals->get($d)?->rental_revenue ?? 0),
             'fnb_revenue'    => (float) (($dRentals->get($d)?->fnb_revenue ?? 0) + ($dFnb->get($d)?->revenue ?? 0)),
-            'customers'      => (int) (($dRentals->get($d)?->customers ?? 0) + ($dFnb->get($d)?->customers ?? 0)),
+            'member_revenue' => (float) ($dMember->get($d)?->revenue ?? 0),
+            'customers'      => (int) (($dRentals->get($d)?->customers ?? 0) + ($dFnb->get($d)?->customers ?? 0) + ($dMember->get($d)?->customers ?? 0)),
         ])->values();
 
         return Inertia::render('Rentals/History', [
             'rentals'                => $query->orderByDesc('started_at')->paginate(20)->withQueryString(),
             'fnb_orders'             => $fnbQuery->orderByDesc('paid_at')->paginate(20, ['*'], 'fnb_page')->withQueryString(),
+            'member_deposits'        => $memberDepositQuery->orderByDesc('created_at')->paginate(20, ['*'], 'member_page')->withQueryString(),
             'employees'              => Employee::orderBy('name')->get(),
             'consoles'               => Console::orderBy('name')->get(),
             'filters'                => $request->only(['search', 'date', 'month', 'year', 'employee_id', 'console_id', 'payment_method']),
@@ -385,6 +426,7 @@ class RentalController extends Controller
             'summary_revenue'        => (float) $summaryRevenue,
             'summary_rental_revenue' => (float) $summaryRentalRevenue,
             'summary_fnb_revenue'    => (float) $summaryFnbRevenue,
+            'summary_member_revenue' => (float) $summaryMemberRevenue,
             'summary_customers'      => (int) $summaryCustomers,
             'yearly_stats'           => $yearlyStats,
             'monthly_stats'          => $monthlyStats,
@@ -403,6 +445,9 @@ class RentalController extends Controller
         $fnbQuery = \App\Models\FnbOrder::with(['console', 'employee', 'items.fnbItem'])
             ->where('status', 'paid');
 
+        $memberDepositQuery = \App\Models\MemberDeposit::with(['member', 'package', 'employee'])
+            ->whereHas('member');
+
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('transaction_code', 'ilike', "%{$request->search}%")
@@ -412,33 +457,48 @@ class RentalController extends Controller
                 $q->where('code', 'ilike', "%{$request->search}%")
                   ->orWhere('customer_name', 'ilike', "%{$request->search}%");
             });
+            $memberDepositQuery->where(function ($q) use ($request) {
+                $q->whereHas('member', function ($mq) use ($request) {
+                    $mq->where('name', 'ilike', "%{$request->search}%")
+                       ->orWhere('member_number', 'ilike', "%{$request->search}%");
+                })->orWhereHas('package', function ($pq) use ($request) {
+                    $pq->where('name', 'ilike', "%{$request->search}%");
+                });
+            });
         }
         if ($request->date) {
             $query->whereDate('started_at', $request->date);
             $fnbQuery->whereDate('paid_at', $request->date);
+            $memberDepositQuery->whereDate('created_at', $request->date);
         } elseif ($request->month) {
             [$y, $m] = explode('-', $request->month);
             $query->whereYear('started_at', (int) $y)->whereMonth('started_at', (int) $m);
             $fnbQuery->whereYear('paid_at', (int) $y)->whereMonth('paid_at', (int) $m);
+            $memberDepositQuery->whereYear('created_at', (int) $y)->whereMonth('created_at', (int) $m);
         } elseif ($request->year) {
             $query->whereYear('started_at', (int) $request->year);
             $fnbQuery->whereYear('paid_at', (int) $request->year);
+            $memberDepositQuery->whereYear('created_at', (int) $request->year);
         }
         if ($request->employee_id) {
             $query->where('employee_id', $request->employee_id);
             $fnbQuery->where('employee_id', $request->employee_id);
+            $memberDepositQuery->where('employee_id', $request->employee_id);
         }
         if ($request->console_id) {
             $query->where('console_id', $request->console_id);
             $fnbQuery->where('console_id', $request->console_id);
+            $memberDepositQuery->whereRaw('1 = 0');
         }
         if ($request->payment_method) {
             $query->whereHas('payments', fn($q) => $q->where('method', $request->payment_method));
             $fnbQuery->where('payment_method', $request->payment_method);
+            $memberDepositQuery->where('payment_method', $request->payment_method);
         }
 
-        $rentals   = $query->orderBy('started_at', 'asc')->get();
-        $fnbOrders = $fnbQuery->orderBy('paid_at', 'asc')->get();
+        $rentals        = $query->orderBy('started_at', 'asc')->get();
+        $fnbOrders      = $fnbQuery->orderBy('paid_at', 'asc')->get();
+        $memberDeposits = $memberDepositQuery->orderBy('created_at', 'asc')->get();
 
         // Build period label for title
         $periodLabel = 'Semua Waktu';
@@ -712,6 +772,54 @@ class RentalController extends Controller
                 $sheet->getStyle("F{$row}")->applyFromArray($memberBadgeStyle);
                 $sheet->getStyle("K{$row}")->applyFromArray($memberBadgeStyle);
             }
+
+            $row++;
+        }
+
+        // Format Member Deposits
+        foreach ($memberDeposits as $idx => $d) {
+            $grandTotal = (float) $d->amount;
+            $totalSemua += $grandTotal;
+
+            $method = strtolower($d->payment_method ?? 'cash');
+            $isCash = $method === 'cash';
+            $cashAmount = $isCash ? $grandTotal : 0;
+            $qrisAmount = !$isCash ? $grandTotal : 0;
+            $totalCash += $cashAmount;
+            $totalQris += $qrisAmount;
+
+            $fill = ($idx + count($rentals) + count($fnbOrders)) % 2 === 0 ? $normFill : $altFill;
+            $memberLabel = 'Member: ' . ($d->member?->member_number ?? '-') . ' (' . ($d->package?->name ?? 'Deposit') . ')';
+
+            $sheet->setCellValue("A{$row}", $d->created_at?->format('d/m/Y') ?? '-');
+            $sheet->setCellValue("B{$row}", $d->employee?->name ?? '-');
+            $sheet->setCellValue("C{$row}", $d->created_at?->format('H:i') ?? '-');
+            $sheet->setCellValue("D{$row}", ($d->minutes_credited / 60) . ' Jam');
+            $sheet->setCellValue("E{$row}", $memberLabel);
+            $sheet->setCellValue("F{$row}", 0);
+            $sheet->setCellValue("G{$row}", '-');
+            $sheet->setCellValue("H{$row}", '-');
+            $sheet->setCellValue("I{$row}", '-');
+            $sheet->setCellValue("J{$row}", 0);
+            $sheet->setCellValue("K{$row}", 0);
+            $sheet->setCellValue("L{$row}", $grandTotal);
+            $sheet->setCellValue("M{$row}", strtoupper($method));
+            $sheet->setCellValue("N{$row}", $d->employee?->name ?? '-');
+            $sheet->setCellValue("O{$row}", $cashAmount);
+            $sheet->setCellValue("P{$row}", $qrisAmount);
+
+            $sheet->getStyle("A{$row}:P{$row}")->applyFromArray(array_merge(['font' => $fontColor, 'fill' => $fill], $borderStyle));
+            $sheet->getStyle("A{$row}:E{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("F{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("G{$row}:I{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("J{$row}:L{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("M{$row}:N{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("O{$row}:P{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("A{$row}:P{$row}")->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+
+            $sheet->getStyle("F{$row}")->getNumberFormat()->setFormatCode($numFmt);
+            $sheet->getStyle("J{$row}:L{$row}")->getNumberFormat()->setFormatCode($numFmt);
+            $sheet->getStyle("O{$row}:P{$row}")->getNumberFormat()->setFormatCode($numFmt);
 
             $row++;
         }
